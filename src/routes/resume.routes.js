@@ -6,15 +6,64 @@ const {
   calculateRiskLevels
 } = require('../services/eyeHealthEngine');
 
-// GET /api/resume - Mengambil resume analitik 6 bulan terakhir
+/**
+ * @swagger
+ * tags:
+ *   name: Resume
+ *   description: Endpoint untuk ringkasan analitik kesehatan mata jangka panjang
+ */
+
+/**
+ * @swagger
+ * /api/resume:
+ *   get:
+ *     summary: Ambil ringkasan analitik kesehatan mata 6 bulan terakhir
+ *     tags: [Resume]
+ *     description: |
+ *       Mengagregasi data monitoring dari 6 bulan terakhir dan menghitung:
+ *       - Tingkat risiko miopia dan kelelahan mata
+ *       - Skor kesehatan mata akumulatif (0–100)
+ *       - Persentase distribusi jarak dekat vs jauh
+ *       - Rata-rata jarak mata ke layar (cm)
+ *       - Kepatuhan aturan istirahat 20-20-20
+ *       - Total jam monitoring
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil ringkasan analitik kesehatan mata
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/ResumeData'
+ *             example:
+ *               success: true
+ *               data:
+ *                 myopiaRisk: "Sedang"
+ *                 fatigueRisk: "Rendah"
+ *                 avgDistance: 34
+ *                 restCompliance: 87
+ *                 nearPercent: 35
+ *                 farPercent: 65
+ *                 eyeHealthScore: 78
+ *                 totalHours: 120.5
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 router.get('/', async (req, res, next) => {
   try {
-    // Cari tanggal 6 bulan yang lalu
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     const sixMonthsAgoStr = sixMonthsAgo.toISOString().split('T')[0];
 
-    // Ambil semua log dalam rentang 6 bulan terakhir
     const logs = await DailyLog.find({
       date: { $gte: sixMonthsAgoStr }
     });
@@ -25,7 +74,7 @@ router.get('/', async (req, res, next) => {
         data: {
           myopiaRisk: 'Rendah',
           fatigueRisk: 'Rendah',
-          avgDistance: 35, // default
+          avgDistance: 35,
           restCompliance: 100,
           nearPercent: 0,
           farPercent: 100,
@@ -35,7 +84,6 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    // Akumulasi data
     let totalNear = 0;
     let totalFar = 0;
     let totalBlinks = 0;
@@ -52,18 +100,14 @@ router.get('/', async (req, res, next) => {
     const totalHours = totalSec / 3600;
     const avgRestCompliance = Math.round(totalCompliance / logs.length);
 
-    // Hitung persentase dekat vs jauh
     const nearPercent = totalSec > 0 ? Math.round((totalNear / totalSec) * 100) : 0;
     const farPercent = totalSec > 0 ? 100 - nearPercent : 100;
 
-    // Kalkulasi skor kesehatan dan tingkat risiko
     const eyeHealthScore = calculateEyeHealthScore(totalNear, totalFar, totalBlinks, avgRestCompliance);
     const risks = calculateRiskLevels(totalNear, totalFar);
 
-    // Jarak rata-rata (cm) - estimasi berdasarkan porsi jauh-dekat
-    // Jika dominan dekat (<30cm), asumsikan rata-rata ~25cm. Jika dominan jauh (>=30cm), asumsikan ~40cm.
-    const avgDistance = totalSec > 0 
-      ? Math.round(((totalNear * 25) + (totalFar * 40)) / totalSec) 
+    const avgDistance = totalSec > 0
+      ? Math.round(((totalNear * 25) + (totalFar * 40)) / totalSec)
       : 35;
 
     res.status(200).json({
