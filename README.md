@@ -1,6 +1,6 @@
 # SocaSob API
 
-SocaSob API adalah backend service untuk sistem monitoring kesehatan mata yang terintegrasi dengan robot ESP32-CAM. API ini menyediakan endpoint untuk mengelola data log harian, pengaturan pengguna, dan informasi perangkat robot.
+SocaSob API adalah backend service untuk sistem monitoring kesehatan mata yang terintegrasi dengan robot ESP32-CAM. Deploy via CapRover. API ini menyediakan endpoint untuk mengelola data log harian, pengaturan pengguna, dan informasi perangkat robot.
 
 ## Daftar Isi
 
