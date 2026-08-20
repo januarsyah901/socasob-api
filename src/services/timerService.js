@@ -1,58 +1,77 @@
-let elapsedSeconds = 0;
-let timerInterval = null;
-let startTime = null;
-let isActive = false;
+// services/timerService.js
+//
+// Refactor: mendukung timer per robot_id (Map)
+// sebelumnya hanya satu timer global.
 
-const startTimer = (onTick) => {
-  if (isActive) return;
+// Map: robotId → { elapsedSeconds, timerInterval, startTime, isActive }
+const timers = new Map();
 
-  isActive = true;
-  startTime = startTime || new Date();
+const getOrCreate = (robotId) => {
+  if (!timers.has(robotId)) {
+    timers.set(robotId, {
+      elapsedSeconds: 0,
+      timerInterval: null,
+      startTime: null,
+      isActive: false,
+    });
+  }
+  return timers.get(robotId);
+};
 
-  timerInterval = setInterval(() => {
-    elapsedSeconds++;
-    
+const startTimer = (robotId, onTick) => {
+  const t = getOrCreate(robotId);
+  if (t.isActive) return;
+
+  t.isActive = true;
+  t.startTime = t.startTime || new Date();
+
+  t.timerInterval = setInterval(() => {
+    t.elapsedSeconds++;
     if (onTick && typeof onTick === 'function') {
-      const timeObj = getFormattedTime();
-      onTick({
-        ...timeObj,
-        timestamp: new Date().toISOString()
-      });
+      const timeObj = getFormattedTime(robotId);
+      onTick({ ...timeObj, timestamp: new Date().toISOString() });
     }
   }, 1000);
 };
 
-const stopTimer = () => {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
+const stopTimer = (robotId) => {
+  const t = timers.get(robotId);
+  if (!t) return;
+  if (t.timerInterval) {
+    clearInterval(t.timerInterval);
+    t.timerInterval = null;
   }
-  isActive = false;
+  t.isActive = false;
 };
 
-const resetTimer = () => {
-  stopTimer();
-  elapsedSeconds = 0;
-  startTime = null;
+const resetTimer = (robotId) => {
+  stopTimer(robotId);
+  const t = timers.get(robotId);
+  if (t) {
+    t.elapsedSeconds = 0;
+    t.startTime = null;
+  }
 };
 
-const getElapsedSeconds = () => {
-  return elapsedSeconds;
+const getElapsedSeconds = (robotId) => {
+  return timers.get(robotId)?.elapsedSeconds || 0;
 };
 
-const getFormattedTime = () => {
-  const hours = Math.floor(elapsedSeconds / 3600);
-  const minutes = Math.floor((elapsedSeconds % 3600) / 60);
-  const seconds = elapsedSeconds % 60;
-  return { hours, minutes, seconds };
+const getFormattedTime = (robotId) => {
+  const elapsed = getElapsedSeconds(robotId);
+  return {
+    hours: Math.floor(elapsed / 3600),
+    minutes: Math.floor((elapsed % 3600) / 60),
+    seconds: elapsed % 60,
+  };
 };
 
-const getStartTime = () => {
-  return startTime;
+const getStartTime = (robotId) => {
+  return timers.get(robotId)?.startTime || null;
 };
 
-const getIsActive = () => {
-  return isActive;
+const getIsActive = (robotId) => {
+  return timers.get(robotId)?.isActive || false;
 };
 
 module.exports = {
@@ -62,5 +81,5 @@ module.exports = {
   getElapsedSeconds,
   getFormattedTime,
   getStartTime,
-  getIsActive
+  getIsActive,
 };

@@ -3,28 +3,44 @@ const timerService = require('../services/timerService');
 const frontendEmitter = require('./frontendEmitter');
 const { calculateEyeHealthScore, calculateRiskLevels } = require('../services/eyeHealthEngine');
 
-// State in-memory untuk menyimpan status deteksi terakhir
-let currentDistance = 'Jauh';
-let currentConfidence = 100;
-let lastDetectionTime = null;
-let watchdogInterval = null;
+// ============================================================
+// State per robot_id (Map menggantikan variabel global tunggal)
+// ============================================================
+// Struktur: robotId → { distance, confidence, lastDetectionTime, watchdogInterval, timerCleanup }
+const robotStates = new Map();
 
 /**
- * Memulai watchdog untuk mendeteksi jika Python ML berhenti mengirim data (disconnected)
+ * Mengambil atau membuat state awal untuk robot tertentu.
+ * @param {string} robotId
  */
-const startWatchdog = (socket) => {
-  if (watchdogInterval) clearInterval(watchdogInterval);
-  
-  // Periksa setiap 5 detik
-  watchdogInterval = setInterval(async () => {
-    if (lastDetectionTime && (new Date() - lastDetectionTime > 5000)) {
-      // Jika tidak ada data dari Python > 5 detik, anggap disconnected
-      console.log('Python ML stream timeout. Stopping timer.');
-      timerService.stopTimer();
+const getOrCreateRobotState = (robotId) => {
+  if (!robotStates.has(robotId)) {
+    robotStates.set(robotId, {
+      distance: 'Jauh',
+      confidence: 100,
+      lastDetectionTime: null,
+      watchdogInterval: null,
+    });
+  }
+  return robotStates.get(robotId);
+};
+
+// ============================================================
+// Watchdog per robot
+// ============================================================
+
+const startWatchdog = (io, robotId) => {
+  const state = getOrCreateRobotState(robotId);
+  if (state.watchdogInterval) clearInterval(state.watchdogInterval);
+
+  state.watchdogInterval = setInterval(async () => {
+    if (state.lastDetectionTime && (new Date() - state.lastDetectionTime > 5000)) {
+      console.log(`[Watchdog] Robot ${robotId} timeout. Menghentikan timer.`);
+      timerService.stopTimer(robotId);
       await logService.closeActiveSession();
-      
-      // Emit status terputus ke frontend
-      frontendEmitter.emitEyeStatus({
+
+      // Emit status disconnected hanya ke room robot ini
+      io.to(`robot:${robotId}`).emit('eye-status', {
         status: 'disconnected',
         score: 0,
         indicators: { eyeFatigue: 0, myopiaRisk: 0, postureWarning: false, blinkRate: 0 },
@@ -34,87 +50,190 @@ const startWatchdog = (socket) => {
   }, 5000);
 };
 
-/**
- * Menghentikan watchdog
- */
-const stopWatchdog = () => {
-  if (watchdogInterval) {
-    clearInterval(watchdogInterval);
-    watchdogInterval = null;
+const stopWatchdog = (robotId) => {
+  const state = robotStates.get(robotId);
+  if (state && state.watchdogInterval) {
+    clearInterval(state.watchdogInterval);
+    state.watchdogInterval = null;
   }
 };
 
+// ============================================================
+// Handler untuk event dari ML (py-eye-detection)
+// ============================================================
+
 /**
- * Mendaftarkan event listener untuk Python ML Socket
- * @param {Socket} socket - Instance socket client
+ * Memproses event real-time py-eye-detection dari ML.
+ * @param {Server} io - Instance Socket.io server
+ * @param {Object} payload - { robot_id, distance, confidence, blink_event, timestamp }
  */
-const registerPythonHandlers = (socket) => {
-  socket.on('py-eye-detection', async (payload) => {
-    // Validasi payload
-    if (!payload || !payload.distance) return;
+const handleEyeDetection = async (io, payload) => {
+  if (!payload || !payload.robot_id || !payload.distance) return;
 
-    currentDistance = payload.distance;
-    currentConfidence = payload.confidence || 100;
-    lastDetectionTime = new Date();
+  const { robot_id: robotId, distance, confidence, blink_event: blinkEvent, timestamp } = payload;
+  const state = getOrCreateRobotState(robotId);
 
-    // 1. Kirim status jarak real-time langsung ke frontend (latensi rendah)
-    frontendEmitter.emitEyeDistance({
-      distance: currentDistance,
-      confidence: currentConfidence,
-      timestamp: lastDetectionTime.toISOString()
+  state.distance = distance;
+  state.confidence = confidence || 100;
+  state.lastDetectionTime = new Date();
+
+  // 1. Kirim status jarak real-time ke room robot ini
+  io.to(`robot:${robotId}`).emit('eye-distance', {
+    distance,
+    confidence: state.confidence,
+    timestamp: timestamp || state.lastDetectionTime.toISOString()
+  });
+
+  // 2. Jika ada blink event, increment ke DB
+  if (blinkEvent) {
+    await logService.incrementBlink();
+  }
+
+  // 3. Mulai timer jika belum aktif
+  if (!timerService.getIsActive(robotId)) {
+    startWatchdog(io, robotId);
+
+    timerService.startTimer(robotId, async (timeData) => {
+      // a. Emit timer ke FE
+      io.to(`robot:${robotId}`).emit('timer-update', timeData);
+
+      // b. Update durasi harian di MongoDB (increment 1 detik)
+      await logService.updateDailyDuration(state.distance);
+
+      // c. Setiap 5 detik, kalkulasi & emit eye-status
+      if (timeData.seconds % 5 === 0) {
+        await logService.recalculateMetrics();
+        const log = await logService.getTodayLog();
+
+        const totalSec = log.nearDuration + log.farDuration;
+        const risks = calculateRiskLevels(log.nearDuration, log.farDuration);
+        const score = calculateEyeHealthScore(
+          log.nearDuration, log.farDuration, log.blinkCount, log.restCompliance
+        );
+        const totalMin = totalSec / 60;
+        const blinkRate = totalMin > 0 ? (log.blinkCount / totalMin) : 0;
+
+        io.to(`robot:${robotId}`).emit('eye-status', {
+          status: log.eyeHealthStatus,
+          score,
+          indicators: {
+            eyeFatigue: risks.fatigueRisk === 'Tinggi' ? 85 : risks.fatigueRisk === 'Sedang' ? 45 : 10,
+            myopiaRisk: risks.myopiaRisk === 'Tinggi' ? 85 : risks.myopiaRisk === 'Sedang' ? 45 : 10,
+            postureWarning: false,
+            blinkRate: Math.round(blinkRate * 10) / 10
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+  }
+};
+
+// ============================================================
+// Handler untuk event agregasi py-minute-summary dari ML
+// ============================================================
+
+/**
+ * Memproses event agregasi 1 menit py-minute-summary dari ML.
+ * Data disimpan ke MongoDB dan diteruskan ke FE room robot.
+ * @param {Server} io
+ * @param {Object} summary - Payload lengkap dari AggregatorService ML
+ */
+const handleMinuteSummary = async (io, summary) => {
+  if (!summary || !summary.robot_id) return;
+
+  const { robot_id: robotId } = summary;
+  console.log(`[Summary] Menerima ringkasan 1 menit dari robot: ${robotId}`);
+
+  try {
+    // Simpan durasi dekat/jauh ke DailyLog (increment berdasarkan near/far duration)
+    const today = logService.getLocalDateString();
+    const DailyLog = require('../models/DailyLog');
+
+    await DailyLog.updateOne(
+      { date: today },
+      {
+        $inc: {
+          nearDuration: summary.near_duration_sec || 0,
+          farDuration: summary.far_duration_sec || 0,
+          blinkCount: summary.blink_count || 0,
+        }
+      },
+      { upsert: true }
+    );
+
+    await logService.recalculateMetrics();
+
+    // Forward ke FE room robot ini
+    io.to(`robot:${robotId}`).emit('minute-summary', {
+      near_duration_sec: summary.near_duration_sec,
+      far_duration_sec: summary.far_duration_sec,
+      near_percentage: summary.near_percentage,
+      blink_count: summary.blink_count,
+      avg_blink_rate: summary.avg_blink_rate,
+      dominant_distance: summary.dominant_distance,
+      health_status: summary.health_status,
+      eye_conditions: summary.eye_conditions,
+      recommendations: summary.recommendations,
+      period_start: summary.period_start,
+      period_end: summary.period_end,
     });
 
-    // 2. Jika timer monitoring belum jalan, mulai sekarang
-    if (!timerService.getIsActive()) {
-      startWatchdog(socket);
-      
-      timerService.startTimer(async (timeData) => {
-        // Callback per detik:
-        // a. Emit timer ke frontend
-        frontendEmitter.emitTimerUpdate(timeData);
+    console.log(`[Summary] Data robot ${robotId} berhasil disimpan ke DB.`);
+  } catch (err) {
+    console.error(`[Summary] Gagal menyimpan data robot ${robotId}:`, err.message);
+  }
+};
 
-        // b. Update durasi harian di MongoDB (increment 1 detik)
-        await logService.updateDailyDuration(currentDistance);
+// ============================================================
+// Handler untuk event subscribe dari FE
+// ============================================================
 
-        // c. Setiap 5 detik, kalkulasi ulang metrik dan emit ke frontend
-        if (timeData.seconds % 5 === 0) {
-          await logService.recalculateMetrics();
-          const log = await logService.getTodayLog();
-          
-          const totalSec = log.nearDuration + log.farDuration;
-          const risks = calculateRiskLevels(log.nearDuration, log.farDuration);
-          const score = calculateEyeHealthScore(log.nearDuration, log.farDuration, log.blinkCount, log.restCompliance);
-          
-          // Blink rate per menit
-          const totalMin = totalSec / 60;
-          const blinkRate = totalMin > 0 ? (log.blinkCount / totalMin) : 0;
+/**
+ * Mendaftarkan socket FE ke room robot tertentu.
+ * Dipanggil saat user input robot_id di dashboard.
+ * @param {Socket} socket - Socket instance milik FE client
+ * @param {string} robotId
+ */
+const handleSubscribeRobot = (socket, robotId) => {
+  if (!robotId) return;
 
-          frontendEmitter.emitEyeStatus({
-            status: log.eyeHealthStatus,
-            score,
-            indicators: {
-              eyeFatigue: risks.fatigueRisk === 'Tinggi' ? 85 : risks.fatigueRisk === 'Sedang' ? 45 : 10,
-              myopiaRisk: risks.myopiaRisk === 'Tinggi' ? 85 : risks.myopiaRisk === 'Sedang' ? 45 : 10,
-              postureWarning: false, // Default false, bisa diintegrasikan di masa depan
-              blinkRate: Math.round(blinkRate * 10) / 10
-            },
-            timestamp: new Date().toISOString()
-          });
-        }
-      });
-    }
-  });
+  // Keluarkan dari room robot lama dulu (jika ada)
+  const roomsToLeave = [...socket.rooms].filter(r => r.startsWith('robot:'));
+  roomsToLeave.forEach(room => socket.leave(room));
 
-  socket.on('py-blink-detected', async () => {
-    // Tambahkan jumlah kedipan ke database
-    await logService.incrementBlink();
-  });
+  // Join room robot baru
+  socket.join(`robot:${robotId}`);
+  console.log(`[FE Subscribe] socket ${socket.id} join room robot:${robotId}`);
 
-  // Saat socket terputus
+  // Konfirmasi ke FE
+  socket.emit('subscribed', { robot_id: robotId, room: `robot:${robotId}` });
+};
+
+// ============================================================
+// Register semua handlers ke socket instance
+// ============================================================
+
+/**
+ * @param {Socket} socket - Instance socket client (bisa ML atau FE)
+ * @param {Server} io    - Instance Socket.io server
+ */
+const registerPythonHandlers = (socket, io) => {
+  // --- Event dari ML ---
+  socket.on('py-eye-detection', (payload) => handleEyeDetection(io, payload));
+  socket.on('py-minute-summary', (payload) => handleMinuteSummary(io, payload));
+
+  // --- Event dari FE ---
+  socket.on('subscribe-robot', ({ robot_id }) => handleSubscribeRobot(socket, robot_id));
+
+  // --- Disconnect ---
   socket.on('disconnect', async () => {
-    console.log(`Python client disconnected: ${socket.id}`);
-    stopWatchdog();
-    timerService.stopTimer();
+    console.log(`Socket disconnected: ${socket.id}`);
+    // Hentikan semua watchdog dan timer aktif
+    for (const [robotId] of robotStates) {
+      stopWatchdog(robotId);
+      timerService.stopTimer(robotId);
+    }
     await logService.closeActiveSession();
   });
 };
