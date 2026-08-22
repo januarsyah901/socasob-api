@@ -99,6 +99,7 @@ router.get('/', async (req, res, next) => {
     if (!settings) {
       settings = await Settings.create({
         userId: DEFAULT_USER_ID,
+        robotId: 'fadfa566',
         robotIp: '192.168.1.100',
         audioVolume: 50,
         audioEnabled: true,
@@ -117,11 +118,12 @@ router.get('/', async (req, res, next) => {
 
 router.post('/', validateIp, async (req, res, next) => {
   try {
-    const { robotIp, audioVolume, audioEnabled, notificationEnabled } = req.body;
+    const { robotId, robotIp, audioVolume, audioEnabled, notificationEnabled } = req.body;
 
     const settings = await Settings.findOneAndUpdate(
       { userId: DEFAULT_USER_ID },
       {
+        ...(robotId && { robotId }),
         robotIp,
         audioVolume: audioVolume !== undefined ? Number(audioVolume) : 50,
         audioEnabled: audioEnabled !== undefined ? Boolean(audioEnabled) : true,
@@ -134,6 +136,32 @@ router.post('/', validateIp, async (req, res, next) => {
       success: true,
       data: settings,
       message: 'Pengaturan berhasil diperbarui'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/', validateIp, async (req, res, next) => {
+  try {
+    const { robotId, robotIp, audioVolume, audioEnabled, notificationEnabled } = req.body;
+
+    const settings = await Settings.findOneAndUpdate(
+      { userId: DEFAULT_USER_ID },
+      {
+        ...(robotId && { robotId }),
+        robotIp,
+        audioVolume: audioVolume !== undefined ? Number(audioVolume) : 50,
+        audioEnabled: audioEnabled !== undefined ? Boolean(audioEnabled) : true,
+        notificationEnabled: notificationEnabled !== undefined ? Boolean(notificationEnabled) : true
+      },
+      { new: true, upsert: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: settings,
+      message: 'Pengaturan berhasil diperbarui (via PUT)'
     });
   } catch (error) {
     next(error);

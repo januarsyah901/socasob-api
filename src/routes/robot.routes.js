@@ -140,10 +140,12 @@ router.get('/status', async (req, res, next) => {
   try {
     const settings = await Settings.findOne({ userId: DEFAULT_USER_ID });
     const ip = settings ? settings.robotIp : '192.168.1.100';
+    const robotId = settings ? settings.robotId : 'fadfa566';
 
     res.status(200).json({
       success: true,
       data: {
+        robotId,
         ipAddress: ip,
         macAddress: '24:0A:C4:B3:52:1A',
         rssi: -58,
@@ -191,9 +193,13 @@ router.get('/status', async (req, res, next) => {
  */
 router.get('/health', async (req, res, next) => {
   try {
+    const settings = await Settings.findOne({ userId: DEFAULT_USER_ID });
+    const robotId = settings ? settings.robotId : 'fadfa566';
+
     res.status(200).json({
       success: true,
       data: {
+        robotId,
         uptime: '2d 4h 12m',
         cpuTemperature: 42.5,
         wifiStrength: 'Bagus (-58 dBm)',
@@ -201,6 +207,50 @@ router.get('/health', async (req, res, next) => {
         mlModelAccuracy: 95.2
       }
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/robot/alert:
+ *   post:
+ *     summary: Kirim notifikasi/peringatan uji coba ke room Socket.io FE
+ *     tags: [Robot]
+ */
+router.post('/alert', async (req, res, next) => {
+  try {
+    const { robotId, status, score, message } = req.body;
+    const targetRobotId = robotId || 'fadfa566';
+    const { getIO } = require('../sockets');
+
+    try {
+      const io = getIO();
+      io.to(`robot:${targetRobotId}`).emit('eye-status', {
+        status: status || 'risk_myopia',
+        score: score !== undefined ? score : 45,
+        indicators: {
+          eyeFatigue: 75,
+          myopiaRisk: 85,
+          postureWarning: true,
+          blinkRate: 8.5
+        },
+        message: message || 'Peringatan uji coba: Jarak terlalu dekat terdeteksi!',
+        timestamp: new Date().toISOString()
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Peringatan berhasil dikirim ke room robot:${targetRobotId}`,
+        data: { robotId: targetRobotId, status, score, message }
+      });
+    } catch (err) {
+      return res.status(200).json({
+        success: true,
+        message: `Koneksi Socket.io belum aktif di server, payload disimulasikan: ${err.message}`
+      });
+    }
   } catch (error) {
     next(error);
   }

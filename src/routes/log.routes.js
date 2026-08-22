@@ -176,4 +176,90 @@ router.get('/:date', async (req, res, next) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/log/manual:
+ *   post:
+ *     summary: Tambah/update log harian secara manual (untuk pengujian)
+ *     tags: [Log]
+ */
+router.post('/manual', async (req, res, next) => {
+  try {
+    const { date, nearDuration, farDuration, blinkCount, eyeHealthStatus } = req.body;
+    const DailyLog = require('../models/DailyLog');
+    
+    const targetDate = date || logService.getLocalDateString();
+    const updatedLog = await DailyLog.findOneAndUpdate(
+      { date: targetDate },
+      {
+        $inc: {
+          nearDuration: Number(nearDuration) || 0,
+          farDuration: Number(farDuration) || 0,
+          blinkCount: Number(blinkCount) || 0,
+        },
+        ...(eyeHealthStatus && { eyeHealthStatus })
+      },
+      { upsert: true, new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Log untuk tanggal ${targetDate} berhasil diperbarui`,
+      data: updatedLog
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/log/{date}:
+ *   delete:
+ *     summary: Hapus log pada tanggal tertentu (untuk pengujian)
+ *     tags: [Log]
+ */
+router.delete('/:date', async (req, res, next) => {
+  try {
+    const { date } = req.params;
+    const DailyLog = require('../models/DailyLog');
+    const result = await DailyLog.deleteOne({ date });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        error: `Log untuk tanggal ${date} tidak ditemukan`
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Log untuk tanggal ${date} berhasil dihapus`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/log:
+ *   delete:
+ *     summary: Hapus seluruh log harian (reset database untuk pengujian)
+ *     tags: [Log]
+ */
+router.delete('/', async (req, res, next) => {
+  try {
+    const DailyLog = require('../models/DailyLog');
+    const result = await DailyLog.deleteMany({});
+
+    res.status(200).json({
+      success: true,
+      message: `Seluruh data log (${result.deletedCount} dokumen) berhasil dihapus`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

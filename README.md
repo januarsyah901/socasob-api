@@ -2,6 +2,15 @@
 
 SocaSob API adalah backend service untuk sistem monitoring kesehatan mata yang terintegrasi dengan robot ESP32-CAM. Deploy via CapRover. API ini menyediakan endpoint untuk mengelola data log harian, pengaturan pengguna, dan informasi perangkat robot.
 
+---
+
+### 🌐 Live Production Deployment
+- **URL Publik API**: [be-socasob.hallojanu.xyz](https://be-socasob.hallojanu.xyz) (Status: 🟢 Active)
+- **Frontend App**: [socasob.hallojanu.xyz](https://socasob.hallojanu.xyz)
+- **ML Vision Pipeline**: [socasob-ml.hallojanu.xyz](https://socasob-ml.hallojanu.xyz)
+
+---
+
 ## Daftar Isi
 
 - [Fitur](#fitur)

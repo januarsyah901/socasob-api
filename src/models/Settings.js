@@ -8,6 +8,11 @@ const SettingsSchema = new mongoose.Schema({
     default: 'default_user',
     index: true
   },
+  robotId: {
+    type: String,
+    required: true,
+    default: 'fadfa566'
+  },
   robotIp: {
     type: String,
     required: true,
