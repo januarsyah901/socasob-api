@@ -1,6 +1,5 @@
 const logService = require('../services/logService');
 const timerService = require('../services/timerService');
-const frontendEmitter = require('./frontendEmitter');
 const { calculateEyeHealthScore, calculateRiskLevels } = require('../services/eyeHealthEngine');
 
 // ============================================================

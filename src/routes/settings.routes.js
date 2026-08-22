@@ -116,15 +116,26 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.post('/', validateIp, async (req, res, next) => {
+
+router.post('/', async (req, res, next) => {
   try {
     const { robotId, robotIp, audioVolume, audioEnabled, notificationEnabled } = req.body;
+
+    // Validasi IP opsional — hanya jika dikirim
+    if (robotIp && robotIp.trim()) {
+      const net = require('net');
+      const isIPv4 = net.isIPv4(robotIp);
+      const isBlocked = ['127.0.0.1', '0.0.0.0', 'localhost'].includes(robotIp.toLowerCase());
+      if (!isIPv4 || isBlocked) {
+        return res.status(400).json({ success: false, error: 'Format IP Address tidak valid (wajib IPv4)' });
+      }
+    }
 
     const settings = await Settings.findOneAndUpdate(
       { userId: DEFAULT_USER_ID },
       {
         ...(robotId && { robotId }),
-        robotIp,
+        ...(robotIp && { robotIp }),
         audioVolume: audioVolume !== undefined ? Number(audioVolume) : 50,
         audioEnabled: audioEnabled !== undefined ? Boolean(audioEnabled) : true,
         notificationEnabled: notificationEnabled !== undefined ? Boolean(notificationEnabled) : true
@@ -142,15 +153,24 @@ router.post('/', validateIp, async (req, res, next) => {
   }
 });
 
-router.put('/', validateIp, async (req, res, next) => {
+router.put('/', async (req, res, next) => {
   try {
     const { robotId, robotIp, audioVolume, audioEnabled, notificationEnabled } = req.body;
+
+    if (robotIp && robotIp.trim()) {
+      const net = require('net');
+      const isIPv4 = net.isIPv4(robotIp);
+      const isBlocked = ['127.0.0.1', '0.0.0.0', 'localhost'].includes(robotIp.toLowerCase());
+      if (!isIPv4 || isBlocked) {
+        return res.status(400).json({ success: false, error: 'Format IP Address tidak valid (wajib IPv4)' });
+      }
+    }
 
     const settings = await Settings.findOneAndUpdate(
       { userId: DEFAULT_USER_ID },
       {
         ...(robotId && { robotId }),
-        robotIp,
+        ...(robotIp && { robotIp }),
         audioVolume: audioVolume !== undefined ? Number(audioVolume) : 50,
         audioEnabled: audioEnabled !== undefined ? Boolean(audioEnabled) : true,
         notificationEnabled: notificationEnabled !== undefined ? Boolean(notificationEnabled) : true
