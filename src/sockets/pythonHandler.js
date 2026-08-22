@@ -6,7 +6,7 @@ const { calculateEyeHealthScore, calculateRiskLevels } = require('../services/ey
 // ============================================================
 // State per robot_id (Map menggantikan variabel global tunggal)
 // ============================================================
-// Struktur: robotId → { distance, confidence, lastDetectionTime, watchdogInterval, timerCleanup }
+// Struktur: robotId → { distance, confidence, lastDetectionTime, watchdogInterval }
 const robotStates = new Map();
 
 /**
@@ -37,7 +37,7 @@ const startWatchdog = (io, robotId) => {
     if (state.lastDetectionTime && (new Date() - state.lastDetectionTime > 5000)) {
       console.log(`[Watchdog] Robot ${robotId} timeout. Menghentikan timer.`);
       timerService.stopTimer(robotId);
-      await logService.closeActiveSession();
+      await logService.closeActiveSession(robotId);
 
       // Emit status disconnected hanya ke room robot ini
       io.to(`robot:${robotId}`).emit('eye-status', {
@@ -86,7 +86,7 @@ const handleEyeDetection = async (io, payload) => {
 
   // 2. Jika ada blink event, increment ke DB
   if (blinkEvent) {
-    await logService.incrementBlink();
+    await logService.incrementBlink(robotId);
   }
 
   // 3. Mulai timer jika belum aktif
@@ -98,12 +98,13 @@ const handleEyeDetection = async (io, payload) => {
       io.to(`robot:${robotId}`).emit('timer-update', timeData);
 
       // b. Update durasi harian di MongoDB (increment 1 detik)
-      await logService.updateDailyDuration(state.distance);
+      await logService.updateDailyDuration(robotId, state.distance);
 
       // c. Setiap 5 detik, kalkulasi & emit eye-status
       if (timeData.seconds % 5 === 0) {
-        await logService.recalculateMetrics();
-        const log = await logService.getTodayLog();
+        await logService.recalculateMetrics(robotId);
+        const log = await logService.getTodayLog(robotId);
+        if (!log) return;
 
         const totalSec = log.nearDuration + log.farDuration;
         const risks = calculateRiskLevels(log.nearDuration, log.farDuration);
@@ -151,7 +152,7 @@ const handleMinuteSummary = async (io, summary) => {
     const DailyLog = require('../models/DailyLog');
 
     await DailyLog.updateOne(
-      { date: today },
+      { robotId, date: today },
       {
         $inc: {
           nearDuration: summary.near_duration_sec || 0,
@@ -162,7 +163,7 @@ const handleMinuteSummary = async (io, summary) => {
       { upsert: true }
     );
 
-    await logService.recalculateMetrics();
+    await logService.recalculateMetrics(robotId);
 
     // Forward ke FE room robot ini
     io.to(`robot:${robotId}`).emit('minute-summary', {
@@ -233,8 +234,8 @@ const registerPythonHandlers = (socket, io) => {
     for (const [robotId] of robotStates) {
       stopWatchdog(robotId);
       timerService.stopTimer(robotId);
+      await logService.closeActiveSession(robotId);
     }
-    await logService.closeActiveSession();
   });
 };
 

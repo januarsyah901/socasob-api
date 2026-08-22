@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const logService = require('../services/logService');
+const DailyLog = require('../models/DailyLog');
 
 /**
  * @swagger
@@ -13,32 +14,42 @@ const logService = require('../services/logService');
  * @swagger
  * /api/log/today:
  *   get:
- *     summary: Ambil rangkuman log hari ini
+ *     summary: Ambil rangkuman log hari ini untuk robot tertentu
  *     tags: [Log]
- *     description: Mengambil data monitoring hari ini termasuk durasi tatap dekat/jauh, sesi, jumlah kedipan, dan status kesehatan mata.
+ *     parameters:
+ *       - in: query
+ *         name: robotId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID unik robot
+ *         example: "fadfa566"
  *     responses:
  *       200:
  *         description: Berhasil mengambil data log hari ini
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/DailyLog'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *       400:
+ *         description: robotId wajib diisi
+ *       404:
+ *         description: Belum ada data monitoring hari ini
  */
 router.get('/today', async (req, res, next) => {
   try {
-    const log = await logService.getTodayLog();
+    const { robotId } = req.query;
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query parameter robotId wajib diisi. Contoh: /api/log/today?robotId=fadfa566'
+      });
+    }
+
+    const log = await logService.getTodayLog(robotId);
+    if (!log) {
+      return res.status(404).json({
+        success: false,
+        error: `Belum ada data monitoring hari ini untuk robot '${robotId}'.`
+      });
+    }
+
     res.status(200).json({
       success: true,
       data: log
@@ -52,10 +63,16 @@ router.get('/today', async (req, res, next) => {
  * @swagger
  * /api/log/weekly:
  *   get:
- *     summary: Ambil riwayat log 7 hari terakhir
+ *     summary: Ambil riwayat log 7 hari terakhir untuk robot tertentu
  *     tags: [Log]
- *     description: Mengambil riwayat monitoring selama 7 hari terakhir, bisa juga difilter dengan query parameter tanggal.
  *     parameters:
+ *       - in: query
+ *         name: robotId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID unik robot
+ *         example: "fadfa566"
  *       - in: query
  *         name: startDate
  *         schema:
@@ -73,29 +90,20 @@ router.get('/today', async (req, res, next) => {
  *     responses:
  *       200:
  *         description: Berhasil mengambil riwayat log mingguan
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/DailyLog'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *       400:
+ *         description: robotId wajib diisi
  */
 router.get('/weekly', async (req, res, next) => {
   try {
-    const { startDate, endDate } = req.query;
-    const logs = await logService.getWeeklyLogs(startDate, endDate);
+    const { robotId, startDate, endDate } = req.query;
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query parameter robotId wajib diisi. Contoh: /api/log/weekly?robotId=fadfa566'
+      });
+    }
+
+    const logs = await logService.getWeeklyLogs(robotId, startDate, endDate);
     res.status(200).json({
       success: true,
       data: logs
@@ -109,10 +117,15 @@ router.get('/weekly', async (req, res, next) => {
  * @swagger
  * /api/log/{date}:
  *   get:
- *     summary: Ambil log pada tanggal tertentu
+ *     summary: Ambil log pada tanggal tertentu untuk robot tertentu
  *     tags: [Log]
- *     description: Mengambil data monitoring pada tanggal spesifik.
  *     parameters:
+ *       - in: query
+ *         name: robotId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID unik robot
  *       - in: path
  *         name: date
  *         required: true
@@ -120,36 +133,26 @@ router.get('/weekly', async (req, res, next) => {
  *           type: string
  *           format: date
  *           example: "2026-07-10"
- *         description: Tanggal yang ingin diambil dalam format YYYY-MM-DD
+ *         description: Tanggal yang ingin diambil (YYYY-MM-DD)
  *     responses:
  *       200:
  *         description: Berhasil mengambil data log
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/DailyLog'
  *       400:
- *         description: Format tanggal tidak valid
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Format tanggal tidak valid atau robotId kosong
  *       404:
- *         description: Log tidak ditemukan untuk tanggal tersebut
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Log tidak ditemukan
  */
 router.get('/:date', async (req, res, next) => {
   try {
     const { date } = req.params;
+    const { robotId } = req.query;
+
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query parameter robotId wajib diisi. Contoh: /api/log/2026-08-22?robotId=fadfa566'
+      });
+    }
 
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(date)) {
@@ -159,11 +162,11 @@ router.get('/:date', async (req, res, next) => {
       });
     }
 
-    const log = await logService.getLogByDate(date);
+    const log = await logService.getLogByDate(robotId, date);
     if (!log) {
       return res.status(404).json({
         success: false,
-        error: `Log untuk tanggal ${date} tidak ditemukan`
+        error: `Log untuk robot '${robotId}' pada tanggal ${date} tidak ditemukan`
       });
     }
 
@@ -185,12 +188,18 @@ router.get('/:date', async (req, res, next) => {
  */
 router.post('/manual', async (req, res, next) => {
   try {
-    const { date, nearDuration, farDuration, blinkCount, eyeHealthStatus } = req.body;
-    const DailyLog = require('../models/DailyLog');
-    
+    const { robotId, date, nearDuration, farDuration, blinkCount, eyeHealthStatus } = req.body;
+
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Field robotId wajib diisi di body request.'
+      });
+    }
+
     const targetDate = date || logService.getLocalDateString();
     const updatedLog = await DailyLog.findOneAndUpdate(
-      { date: targetDate },
+      { robotId, date: targetDate },
       {
         $inc: {
           nearDuration: Number(nearDuration) || 0,
@@ -204,7 +213,7 @@ router.post('/manual', async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: `Log untuk tanggal ${targetDate} berhasil diperbarui`,
+      message: `Log untuk robot '${robotId}' tanggal ${targetDate} berhasil diperbarui`,
       data: updatedLog
     });
   } catch (error) {
@@ -222,19 +231,27 @@ router.post('/manual', async (req, res, next) => {
 router.delete('/:date', async (req, res, next) => {
   try {
     const { date } = req.params;
-    const DailyLog = require('../models/DailyLog');
-    const result = await DailyLog.deleteOne({ date });
+    const { robotId } = req.query;
+
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query parameter robotId wajib diisi.'
+      });
+    }
+
+    const result = await DailyLog.deleteOne({ robotId, date });
 
     if (result.deletedCount === 0) {
       return res.status(404).json({
         success: false,
-        error: `Log untuk tanggal ${date} tidak ditemukan`
+        error: `Log untuk robot '${robotId}' pada tanggal ${date} tidak ditemukan`
       });
     }
 
     res.status(200).json({
       success: true,
-      message: `Log untuk tanggal ${date} berhasil dihapus`
+      message: `Log untuk robot '${robotId}' tanggal ${date} berhasil dihapus`
     });
   } catch (error) {
     next(error);
@@ -250,12 +267,13 @@ router.delete('/:date', async (req, res, next) => {
  */
 router.delete('/', async (req, res, next) => {
   try {
-    const DailyLog = require('../models/DailyLog');
-    const result = await DailyLog.deleteMany({});
+    const { robotId } = req.query;
+    const filter = robotId ? { robotId } : {};
+    const result = await DailyLog.deleteMany(filter);
 
     res.status(200).json({
       success: true,
-      message: `Seluruh data log (${result.deletedCount} dokumen) berhasil dihapus`
+      message: `Seluruh data log${robotId ? ` untuk robot '${robotId}'` : ''} (${result.deletedCount} dokumen) berhasil dihapus`
     });
   } catch (error) {
     next(error);

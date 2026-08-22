@@ -17,70 +17,54 @@ const {
  * @swagger
  * /api/resume:
  *   get:
- *     summary: Ambil ringkasan analitik kesehatan mata 6 bulan terakhir
+ *     summary: Ambil ringkasan analitik kesehatan mata 6 bulan terakhir untuk robot tertentu
  *     tags: [Resume]
+ *     parameters:
+ *       - in: query
+ *         name: robotId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID unik robot
+ *         example: "fadfa566"
  *     description: |
  *       Mengagregasi data monitoring dari 6 bulan terakhir dan menghitung:
  *       - Tingkat risiko miopia dan kelelahan mata
  *       - Skor kesehatan mata akumulatif (0–100)
  *       - Persentase distribusi jarak dekat vs jauh
- *       - Rata-rata jarak mata ke layar (cm)
  *       - Kepatuhan aturan istirahat 20-20-20
  *       - Total jam monitoring
  *     responses:
  *       200:
  *         description: Berhasil mengambil ringkasan analitik kesehatan mata
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/ResumeData'
- *             example:
- *               success: true
- *               data:
- *                 myopiaRisk: "Sedang"
- *                 fatigueRisk: "Rendah"
- *                 avgDistance: 34
- *                 restCompliance: 87
- *                 nearPercent: 35
- *                 farPercent: 65
- *                 eyeHealthScore: 78
- *                 totalHours: 120.5
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *       400:
+ *         description: robotId wajib diisi
+ *       404:
+ *         description: Belum ada data monitoring untuk robot ini
  */
 router.get('/', async (req, res, next) => {
   try {
+    const { robotId } = req.query;
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query parameter robotId wajib diisi. Contoh: /api/resume?robotId=fadfa566'
+      });
+    }
+
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
     const sixMonthsAgoStr = sixMonthsAgo.toISOString().split('T')[0];
 
     const logs = await DailyLog.find({
+      robotId,
       date: { $gte: sixMonthsAgoStr }
     });
 
     if (logs.length === 0) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          myopiaRisk: 'Rendah',
-          fatigueRisk: 'Rendah',
-          avgDistance: 35,
-          restCompliance: 100,
-          nearPercent: 0,
-          farPercent: 100,
-          eyeHealthScore: 100,
-          totalHours: 0
-        }
+      return res.status(404).json({
+        success: false,
+        error: `Belum ada data monitoring 6 bulan terakhir untuk robot '${robotId}'.`
       });
     }
 
@@ -113,6 +97,7 @@ router.get('/', async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: {
+        robotId,
         myopiaRisk: risks.myopiaRisk,
         fatigueRisk: risks.fatigueRisk,
         avgDistance,
@@ -120,7 +105,8 @@ router.get('/', async (req, res, next) => {
         nearPercent,
         farPercent,
         eyeHealthScore,
-        totalHours: Math.round(totalHours * 10) / 10
+        totalHours: Math.round(totalHours * 10) / 10,
+        totalDaysMonitored: logs.length
       }
     });
   } catch (error) {

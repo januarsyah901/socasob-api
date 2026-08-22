@@ -39,35 +39,12 @@ const { DEFAULT_USER_ID } = require('../config/constants');
  *     responses:
  *       200:
  *         description: Berhasil terhubung ke ESP32-CAM
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Berhasil terhubung ke ESP32-CAM di 192.168.1.105:80"
  *       400:
  *         description: Format IP tidak valid atau field wajib tidak dikirim
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       408:
  *         description: Koneksi timeout — ESP32-CAM tidak merespons
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  *       502:
  *         description: Gagal terhubung ke perangkat
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/connect', validateIp, async (req, res, next) => {
   const { robotIp } = req.body;
@@ -113,44 +90,65 @@ router.post('/connect', validateIp, async (req, res, next) => {
  * @swagger
  * /api/robot/status:
  *   get:
- *     summary: Ambil status perangkat ESP32-CAM aktif
+ *     summary: Ambil status perangkat ESP32-CAM berdasarkan robotId
  *     tags: [Robot]
- *     description: Mengambil informasi perangkat yang sedang aktif, termasuk IP, MAC Address, kekuatan sinyal Wi-Fi, dan versi firmware.
+ *     description: |
+ *       Mengambil informasi perangkat aktif yang terdaftar di settings.
+ *       Wajib kirim query parameter `robotId`. Mengembalikan 404 jika tidak ditemukan
+ *       atau null jika robot belum pernah connect. Tidak ada data dummy.
+ *     parameters:
+ *       - in: query
+ *         name: robotId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID unik robot ESP32-CAM (MAC/Hardware ID)
+ *         example: "fadfa566"
  *     responses:
  *       200:
  *         description: Berhasil mengambil status perangkat
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/RobotStatus'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *       400:
+ *         description: Parameter robotId tidak dikirim
+ *       404:
+ *         description: Robot tidak ditemukan di settings
  */
 router.get('/status', async (req, res, next) => {
   try {
-    const settings = await Settings.findOne({ userId: DEFAULT_USER_ID });
-    const ip = settings ? settings.robotIp : '192.168.1.100';
-    const robotId = settings ? settings.robotId : 'fadfa566';
+    const { robotId } = req.query;
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parameter robotId wajib diisi. Contoh: /api/robot/status?robotId=fadfa566'
+      });
+    }
+
+    const settings = await Settings.findOne({ robotId });
+
+    if (!settings) {
+      return res.status(404).json({
+        success: false,
+        error: `Robot dengan ID '${robotId}' tidak ditemukan. Pastikan robot sudah terdaftar via Settings.`
+      });
+    }
+
+    // Cek apakah robot aktif di Socket.io (in-memory map dari pythonHandler)
+    let isOnline = false;
+    try {
+      const { getIO } = require('../sockets');
+      const io = getIO();
+      const rooms = io.sockets.adapter.rooms;
+      isOnline = rooms.has(`robot:${robotId}`);
+    } catch (_) {
+      // Socket belum aktif — tidak masalah
+    }
 
     res.status(200).json({
       success: true,
       data: {
-        robotId,
-        ipAddress: ip,
-        macAddress: '24:0A:C4:B3:52:1A',
-        rssi: -58,
-        firmwareVersion: 'v1.0.0-socasob',
-        status: 'active'
+        robotId: settings.robotId,
+        ipAddress: settings.robotIp,
+        isOnline,
+        status: isOnline ? 'active' : 'offline'
       }
     });
   } catch (error) {
@@ -165,46 +163,61 @@ router.get('/status', async (req, res, next) => {
  *     summary: Ambil informasi kesehatan sistem perangkat ESP32-CAM
  *     tags: [Robot]
  *     description: |
- *       Mengambil metrik kesehatan sistem perangkat secara real-time:
- *       - **Uptime**: Durasi perangkat aktif sejak terakhir restart
- *       - **CPU Temperature**: Suhu inti processor ESP32 (dalam °C)
- *       - **Wi-Fi Strength**: Kekuatan sinyal Wi-Fi dalam dBm
- *       - **FPS**: Frame rate video stream kamera
- *       - **ML Model Accuracy**: Akurasi model MediaPipe Face Mesh (%)
+ *       Mengambil data monitoring hari ini dari robot yang diminta.
+ *       Wajib kirim query parameter `robotId`. Mengembalikan 404 jika tidak ada data hari ini.
+ *     parameters:
+ *       - in: query
+ *         name: robotId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID unik robot ESP32-CAM
+ *         example: "fadfa566"
  *     responses:
  *       200:
- *         description: Berhasil mengambil info kesehatan sistem
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   $ref: '#/components/schemas/RobotHealth'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
+ *         description: Berhasil mengambil info kesehatan robot
+ *       400:
+ *         description: Parameter robotId tidak dikirim
+ *       404:
+ *         description: Belum ada data monitoring hari ini untuk robot ini
  */
 router.get('/health', async (req, res, next) => {
   try {
-    const settings = await Settings.findOne({ userId: DEFAULT_USER_ID });
-    const robotId = settings ? settings.robotId : 'fadfa566';
+    const { robotId } = req.query;
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Parameter robotId wajib diisi. Contoh: /api/robot/health?robotId=fadfa566'
+      });
+    }
+
+    const logService = require('../services/logService');
+    const todayLog = await logService.getTodayLog(robotId);
+
+    if (!todayLog) {
+      return res.status(404).json({
+        success: false,
+        error: `Belum ada data monitoring hari ini untuk robot '${robotId}'.`
+      });
+    }
+
+    const totalSec = todayLog.nearDuration + todayLog.farDuration;
+    const totalMin = totalSec / 60;
+    const blinkRate = totalMin > 0 ? Math.round((todayLog.blinkCount / totalMin) * 10) / 10 : 0;
 
     res.status(200).json({
       success: true,
       data: {
         robotId,
-        uptime: '2d 4h 12m',
-        cpuTemperature: 42.5,
-        wifiStrength: 'Bagus (-58 dBm)',
-        fps: 24,
-        mlModelAccuracy: 95.2
+        date: todayLog.date,
+        nearDuration: todayLog.nearDuration,
+        farDuration: todayLog.farDuration,
+        blinkCount: todayLog.blinkCount,
+        blinkRate,
+        eyeHealthStatus: todayLog.eyeHealthStatus,
+        restCompliance: todayLog.restCompliance,
+        totalMonitoringSeconds: totalSec,
+        updatedAt: todayLog.updatedAt
       }
     });
   } catch (error) {
@@ -222,12 +235,19 @@ router.get('/health', async (req, res, next) => {
 router.post('/alert', async (req, res, next) => {
   try {
     const { robotId, status, score, message } = req.body;
-    const targetRobotId = robotId || 'fadfa566';
+
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Field robotId wajib diisi di body request.'
+      });
+    }
+
     const { getIO } = require('../sockets');
 
     try {
       const io = getIO();
-      io.to(`robot:${targetRobotId}`).emit('eye-status', {
+      io.to(`robot:${robotId}`).emit('eye-status', {
         status: status || 'risk_myopia',
         score: score !== undefined ? score : 45,
         indicators: {
@@ -242,13 +262,13 @@ router.post('/alert', async (req, res, next) => {
 
       return res.status(200).json({
         success: true,
-        message: `Peringatan berhasil dikirim ke room robot:${targetRobotId}`,
-        data: { robotId: targetRobotId, status, score, message }
+        message: `Peringatan berhasil dikirim ke room robot:${robotId}`,
+        data: { robotId, status, score, message }
       });
     } catch (err) {
-      return res.status(200).json({
-        success: true,
-        message: `Koneksi Socket.io belum aktif di server, payload disimulasikan: ${err.message}`
+      return res.status(503).json({
+        success: false,
+        error: `Socket.io belum aktif: ${err.message}`
       });
     }
   } catch (error) {

@@ -16,10 +16,14 @@ const SessionSchema = new mongoose.Schema({
 });
 
 const DailyLogSchema = new mongoose.Schema({
+  robotId: {
+    type: String,
+    required: true,
+    index: true
+  },
   date: {
     type: String, // format YYYY-MM-DD
     required: true,
-    unique: true,
     index: true
   },
   nearDuration: {
@@ -47,5 +51,8 @@ const DailyLogSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Compound unique index: satu log per robot per hari
+DailyLogSchema.index({ robotId: 1, date: 1 }, { unique: true });
 
 module.exports = mongoose.model('DailyLog', DailyLogSchema);
