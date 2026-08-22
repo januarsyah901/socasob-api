@@ -22,6 +22,9 @@ const Settings = require('../src/models/Settings');
 
 const RESET = process.argv.includes('--reset');
 
+const robotIdArg = process.argv.find(arg => arg.startsWith('--robotId='));
+const ROBOT_ID = robotIdArg ? robotIdArg.split('=')[1] : 'fadfa566';
+
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
@@ -110,7 +113,7 @@ const generateSessions = (dayStart, totalNearSec, totalFarSec) => {
 /**
  * Menghasilkan data DailyLog realistis untuk satu hari
  */
-const generateDayLog = (dateObj, profile = 'normal') => {
+const generateDayLog = (dateObj, profile = 'normal', robotId = ROBOT_ID) => {
   const dateStr = formatDate(dateObj);
 
   // Profile pengguna menentukan pola pemakaian:
@@ -143,6 +146,7 @@ const generateDayLog = (dateObj, profile = 'normal') => {
   const eyeHealthStatus = getEyeHealthStatus(nearDuration, farDuration);
 
   return {
+    robotId,
     date: dateStr,
     nearDuration,
     farDuration,
@@ -158,6 +162,7 @@ const generateDayLog = (dateObj, profile = 'normal') => {
  */
 const settingsSeedData = {
   userId: 'default_user',
+  robotId: ROBOT_ID,
   robotIp: '192.168.1.105',
   audioVolume: 70,
   audioEnabled: true,
@@ -171,6 +176,7 @@ const settingsSeedData = {
 const seed = async () => {
   try {
     console.log('🌱 SocaSob Seeder starting...');
+    console.log(`🤖 Target Robot ID: ${ROBOT_ID}`);
     console.log(`📦 Connecting to MongoDB: ${process.env.MONGO_URI || 'mongodb://localhost:27017/socasob'}`);
 
     await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/socasob');
@@ -198,7 +204,7 @@ const seed = async () => {
     // ============================================================
     // SEED: DailyLog - 30 hari terakhir
     // ============================================================
-    console.log('📅 Seeding DailyLog (30 hari ke belakang)...');
+    console.log(`📅 Seeding DailyLog (30 hari ke belakang untuk robot '${ROBOT_ID}')...`);
 
     const today = new Date();
     const dailyLogs = [];
@@ -208,6 +214,7 @@ const seed = async () => {
     // - Akhir pekan: lebih santai
     // - Minggu pertama: heavy usage (sebelum pengguna sadar)
     // - Minggu ke-3/4: lebih normal (mulai sadar pola pemakaian)
+    // - Minggu ke-1 (terakhir / paling baru): lebih sehat
 
     for (let i = 29; i >= 0; i--) {
       const dateObj = addDays(today, -i);
@@ -229,15 +236,15 @@ const seed = async () => {
         profile = isWeekend ? 'light' : 'normal';
       }
 
-      const logData = generateDayLog(dateObj, profile);
+      const logData = generateDayLog(dateObj, profile, ROBOT_ID);
       dailyLogs.push(logData);
     }
 
-    // Bulk insert semua log (skip jika tanggal sudah ada)
+    // Bulk insert semua log (skip jika tanggal & robotId sudah ada)
     let inserted = 0;
     let skipped = 0;
     for (const logData of dailyLogs) {
-      const exists = await DailyLog.findOne({ date: logData.date });
+      const exists = await DailyLog.findOne({ robotId: logData.robotId, date: logData.date });
       if (!exists) {
         await DailyLog.create(logData);
         inserted++;
