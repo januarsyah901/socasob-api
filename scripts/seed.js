@@ -19,6 +19,7 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const DailyLog = require('../src/models/DailyLog');
 const Settings = require('../src/models/Settings');
+const Robot = require('../src/models/Robot');
 
 const RESET = process.argv.includes('--reset');
 
@@ -187,8 +188,26 @@ const seed = async () => {
       console.log('🗑️  --reset flag detected. Clearing existing data...');
       await DailyLog.deleteMany({});
       await Settings.deleteMany({});
-      console.log('✅ Cleared DailyLog and Settings collections.\n');
+      await Robot.deleteMany({});
+      console.log('✅ Cleared DailyLog, Settings, and Robot collections.\n');
     }
+
+    // ============================================================
+    // SEED: Robot
+    // ============================================================
+    console.log('🤖 Seeding Robot...');
+    await Robot.findOneAndUpdate(
+      { robotId: ROBOT_ID },
+      {
+        robotId: ROBOT_ID,
+        name: 'SocaSob ESP32 Utama',
+        status: 'active',
+        ipAddress: '192.168.1.105',
+        description: 'Robot monitoring default'
+      },
+      { upsert: true, new: true }
+    );
+    console.log(`✅ Robot '${ROBOT_ID}' seeded.\n`);
 
     // ============================================================
     // SEED: Settings

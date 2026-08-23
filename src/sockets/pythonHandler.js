@@ -1,5 +1,6 @@
 const logService = require('../services/logService');
 const timerService = require('../services/timerService');
+const { isRobotValidAndActive, touchRobotLastSeen } = require('../services/robotService');
 const { calculateEyeHealthScore, calculateRiskLevels } = require('../services/eyeHealthEngine');
 
 // ============================================================
@@ -70,6 +71,16 @@ const handleEyeDetection = async (io, payload) => {
   if (!payload || !payload.robot_id || !payload.distance) return;
 
   const { robot_id: robotId, distance, confidence, blink_event: blinkEvent, timestamp } = payload;
+
+  // Security Gate: Cek apakah robot terdaftar dan aktif
+  const isValid = await isRobotValidAndActive(robotId);
+  if (!isValid) {
+    console.warn(`[Security Gate] Mengabaikan frame dari robot '${robotId}' (belum terdaftar / inaktif).`);
+    return;
+  }
+
+  touchRobotLastSeen(robotId);
+
   const state = getOrCreateRobotState(robotId);
 
   state.distance = distance;
@@ -143,6 +154,13 @@ const handleMinuteSummary = async (io, summary) => {
   if (!summary || !summary.robot_id) return;
 
   const { robot_id: robotId } = summary;
+
+  const isValid = await isRobotValidAndActive(robotId);
+  if (!isValid) {
+    console.warn(`[Security Gate] Mengabaikan ringkasan 1 menit dari robot '${robotId}' (belum terdaftar / inaktif).`);
+    return;
+  }
+
   console.log(`[Summary] Menerima ringkasan 1 menit dari robot: ${robotId}`);
 
   try {

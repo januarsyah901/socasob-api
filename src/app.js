@@ -33,6 +33,7 @@ app.use('/api/log', require('./routes/log.routes'));
 app.use('/api/resume', require('./routes/resume.routes'));
 app.use('/api/settings', require('./routes/settings.routes'));
 app.use('/api/robot', require('./routes/robot.routes'));
+app.use('/api/robots', require('./routes/robot.routes'));
 
 // Global error handler
 app.use(errorHandler);
