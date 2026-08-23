@@ -27,6 +27,10 @@ const checkIsOnline = (robotId) => {
  *   description: Endpoint untuk manajemen registrasi dan monitoring perangkat ESP32-CAM
  */
 
+// ============================================================
+// 1. SPECIFIC STATIC ROUTES FIRST (Wajib sebelum parameterized /:robotId)
+// ============================================================
+
 /**
  * @swagger
  * /api/robots:
@@ -108,144 +112,6 @@ router.post('/', async (req, res, next) => {
         ...newRobot.toObject(),
         isOnline: false
       }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/robots/validate/{robotId}:
- *   get:
- *     summary: Cek apakah ID robot valid dan terdaftar
- *     tags: [Robots]
- */
-router.get('/validate/:robotId', async (req, res, next) => {
-  try {
-    const { robotId } = req.params;
-    const isValid = await isRobotValidAndActive(robotId);
-
-    if (!isValid) {
-      return res.status(404).json({
-        success: false,
-        valid: false,
-        error: `Robot dengan ID '${robotId}' tidak terdaftar atau sedang dinonaktifkan.`
-      });
-    }
-
-    const robot = await Robot.findOne({ robotId }).lean();
-    res.status(200).json({
-      success: true,
-      valid: true,
-      data: {
-        robotId: robot.robotId,
-        name: robot.name,
-        status: robot.status,
-        isOnline: checkIsOnline(robot.robotId)
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/robots/{robotId}:
- *   get:
- *     summary: Ambil detail 1 robot
- *     tags: [Robots]
- */
-router.get('/:robotId', async (req, res, next) => {
-  try {
-    const { robotId } = req.params;
-    const robot = await Robot.findOne({ robotId }).lean();
-
-    if (!robot) {
-      return res.status(404).json({
-        success: false,
-        error: `Robot dengan ID '${robotId}' tidak ditemukan.`
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: {
-        ...robot,
-        isOnline: checkIsOnline(robot.robotId)
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/robots/{robotId}:
- *   put:
- *     summary: Update data robot terdaftar
- *     tags: [Robots]
- */
-router.put('/:robotId', async (req, res, next) => {
-  try {
-    const { robotId } = req.params;
-    const { name, ipAddress, description, status } = req.body;
-
-    const robot = await Robot.findOne({ robotId });
-    if (!robot) {
-      return res.status(404).json({
-        success: false,
-        error: `Robot dengan ID '${robotId}' tidak ditemukan.`
-      });
-    }
-
-    if (name) robot.name = name.trim();
-    if (ipAddress !== undefined) robot.ipAddress = ipAddress.trim();
-    if (description !== undefined) robot.description = description.trim();
-    if (status && ['active', 'inactive'].includes(status)) robot.status = status;
-
-    await robot.save();
-    await refreshActiveRobotCache();
-
-    res.status(200).json({
-      success: true,
-      message: `Data robot '${robot.robotId}' berhasil diperbarui.`,
-      data: {
-        ...robot.toObject(),
-        isOnline: checkIsOnline(robot.robotId)
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/robots/{robotId}:
- *   delete:
- *     summary: Hapus robot dari sistem
- *     tags: [Robots]
- */
-router.delete('/:robotId', async (req, res, next) => {
-  try {
-    const { robotId } = req.params;
-    const deleted = await Robot.findOneAndDelete({ robotId });
-
-    if (!deleted) {
-      return res.status(404).json({
-        success: false,
-        error: `Robot dengan ID '${robotId}' tidak ditemukan.`
-      });
-    }
-
-    await refreshActiveRobotCache();
-
-    res.status(200).json({
-      success: true,
-      message: `Robot '${deleted.name}' (${deleted.robotId}) berhasil dihapus.`
     });
   } catch (error) {
     next(error);
@@ -441,6 +307,148 @@ router.post('/alert', async (req, res, next) => {
         error: `Socket.io belum aktif: ${err.message}`
       });
     }
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/robots/validate/{robotId}:
+ *   get:
+ *     summary: Cek apakah ID robot valid dan terdaftar
+ *     tags: [Robots]
+ */
+router.get('/validate/:robotId', async (req, res, next) => {
+  try {
+    const { robotId } = req.params;
+    const isValid = await isRobotValidAndActive(robotId);
+
+    if (!isValid) {
+      return res.status(404).json({
+        success: false,
+        valid: false,
+        error: `Robot dengan ID '${robotId}' tidak terdaftar atau sedang dinonaktifkan.`
+      });
+    }
+
+    const robot = await Robot.findOne({ robotId }).lean();
+    res.status(200).json({
+      success: true,
+      valid: true,
+      data: {
+        robotId: robot.robotId,
+        name: robot.name,
+        status: robot.status,
+        isOnline: checkIsOnline(robot.robotId)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ============================================================
+// 2. PARAMETERIZED ROUTES (/:robotId) AT THE BOTTOM
+// ============================================================
+
+/**
+ * @swagger
+ * /api/robots/{robotId}:
+ *   get:
+ *     summary: Ambil detail 1 robot
+ *     tags: [Robots]
+ */
+router.get('/:robotId', async (req, res, next) => {
+  try {
+    const { robotId } = req.params;
+    const robot = await Robot.findOne({ robotId }).lean();
+
+    if (!robot) {
+      return res.status(404).json({
+        success: false,
+        error: `Robot dengan ID '${robotId}' tidak ditemukan.`
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...robot,
+        isOnline: checkIsOnline(robot.robotId)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/robots/{robotId}:
+ *   put:
+ *     summary: Update data robot terdaftar
+ *     tags: [Robots]
+ */
+router.put('/:robotId', async (req, res, next) => {
+  try {
+    const { robotId } = req.params;
+    const { name, ipAddress, description, status } = req.body;
+
+    const robot = await Robot.findOne({ robotId });
+    if (!robot) {
+      return res.status(404).json({
+        success: false,
+        error: `Robot dengan ID '${robotId}' tidak ditemukan.`
+      });
+    }
+
+    if (name) robot.name = name.trim();
+    if (ipAddress !== undefined) robot.ipAddress = ipAddress.trim();
+    if (description !== undefined) robot.description = description.trim();
+    if (status && ['active', 'inactive'].includes(status)) robot.status = status;
+
+    await robot.save();
+    await refreshActiveRobotCache();
+
+    res.status(200).json({
+      success: true,
+      message: `Data robot '${robot.robotId}' berhasil diperbarui.`,
+      data: {
+        ...robot.toObject(),
+        isOnline: checkIsOnline(robot.robotId)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/robots/{robotId}:
+ *   delete:
+ *     summary: Hapus robot dari sistem
+ *     tags: [Robots]
+ */
+router.delete('/:robotId', async (req, res, next) => {
+  try {
+    const { robotId } = req.params;
+    const deleted = await Robot.findOneAndDelete({ robotId });
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        error: `Robot dengan ID '${robotId}' tidak ditemukan.`
+      });
+    }
+
+    await refreshActiveRobotCache();
+
+    res.status(200).json({
+      success: true,
+      message: `Robot '${deleted.name}' (${deleted.robotId}) berhasil dihapus.`
+    });
   } catch (error) {
     next(error);
   }
