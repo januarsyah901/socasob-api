@@ -13,16 +13,88 @@ const getLocalDateString = () => {
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const geminiModel = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+/**
+ * Fallback knowledge engine jika API Gemini tidak aktif/bermasalah
+ */
+const getFallbackKnowledgeResponse = ({ query, telemetry, patientName = 'Bang Jan' }) => {
+  const q = query.toLowerCase();
+
+  if (
+    q.includes('hari ini') ||
+    q.includes('kondisi saya') ||
+    q.includes('mataku') ||
+    q.includes('data saya') ||
+    q.includes('skor') ||
+    q.includes('pantau')
+  ) {
+    if (telemetry) {
+      const nearMin = Math.round((telemetry.nearDuration || 0) / 60);
+      const farMin = Math.round((telemetry.farDuration || 0) / 60);
+      const compliance = telemetry.restCompliance ?? 100;
+      const blinks = telemetry.blinkCount || 0;
+      const statusText =
+        telemetry.eyeHealthStatus === 'risk_myopia'
+          ? '⚠️ Terlalu Banyak Tatap Dekat (< 30cm)'
+          : telemetry.eyeHealthStatus === 'risk_fatigue'
+          ? '⚠️ Kelelahan Mata Layar Terdeteksi'
+          : '✅ Normal & Sehat';
+
+      return (
+        `Halo ${patientName}! Berikut ringkasan telemetri pemantauan mata Anda hari ini:\n\n` +
+        `📊 **Data Monitoring Real-Time Hari Ini:**\n` +
+        `• **Tatap Dekat (<30cm):** ${nearMin} menit\n` +
+        `• **Tatap Jarak Aman (≥30cm):** ${farMin} menit\n` +
+        `• **Total Kedipan Terdeteksi:** ${blinks} kali\n` +
+        `• **Kepatuhan Aturan 20-20-20:** ${compliance}%\n` +
+        `• **Status Saat Ini:** ${statusText}\n\n` +
+        `💡 **Rekomendasi Medis:**\n` +
+        (compliance < 70
+          ? `Kepatuhan istirahat Anda (${compliance}%) masih di bawah target 70%. Yuk lakukan **Senam Mata** di dashboard sekarang selama 20 detik untuk merelaksasi otot siliaris netra!`
+          : `Kerja bagus! Kepatuhan istirahat Anda mencapai ${compliance}%. Pertahankan posisi jarak monitor minimal 30–50 cm.`)
+      );
+    }
+  }
+
+  if (q.includes('20-20-20') || q.includes('aturan 20') || q.includes('istirahat') || q.includes('jeda')) {
+    return (
+      `🌿 **Panduan Aturan 20-20-20 (Gold Standard Ergonomi Visual):**\n\n` +
+      `Setiap **20 menit** Anda menatap layar monitor, alihkan pandangan ke suatu objek berjarak minimal **20 kaki (sekitar 6 meter)** selama minimal **20 detik**.\n\n` +
+      `**Mengapa hal ini sangat krusial?**\n` +
+      `1. **Relaksasi Otot Siliaris:** Menatap dekat terus-menerus membuat otot akomodasi mata tegang (spasme akomodasi).\n` +
+      `2. **Penyebaran Lapisan Lipid:** Memberi jeda bagi kelenjar meibom untuk melumasi seluruh permukaan kornea.\n` +
+      `3. **Tips Praktis:** Buka modul **Senam Mata** di SocaSob untuk dipandu video & timer 20 detik!`
+    );
+  }
+
+  if (q.includes('jarak') || q.includes('dekat') || q.includes('cm') || q.includes('posisi') || q.includes('layar')) {
+    return (
+      `📏 **Standar Jarak Aman Layar & Posisi Duduk Ergonomis:**\n\n` +
+      `1. **Jarak Ideal:** Minimal **30–50 cm** (kira-kira satu rentangan lengan orang dewasa).\n` +
+      `2. **Tinggi Monitor:** Bagian atas layar berada sejajar atau sedikit di bawah horizontal mata (sudut pandang 10–15° ke bawah).\n` +
+      `3. **Sistem Peringatan SocaSob:** Kamera sensor AI kami otomatis berbunyi dan memberi notifikasi saat jarak terdeteksi < 30 cm.`
+    );
+  }
+
+  return (
+    `Halo ${patientName}! Terima kasih telah berkonsultasi dengan **Teman Soca**.\n\n` +
+    `Mengenai pertanyaan Anda: *" ${query} "*\n\n` +
+    `Untuk memelihara kesehatan mata Anda saat menggunakan perangkat digital, ingatlah 3 prinsip utama:\n` +
+    `1. **Jaga Jarak Layar:** Minimal **30–50 cm** dari posisi wajah Anda.\n` +
+    `2. **Micro-Break Teratur:** Terapkan aturan **20-20-20** dan lakukan peregangan otot mata berkala.\n` +
+    `3. **Pencahayaan Seimbang:** Sesuaikan kecerahan layar agar seimbang dengan cahaya sekitar ruangan.`
+  );
+};
 
 /**
- * Mesin Respon AI Spesialis Ergonomi & Kesehatan Mata (Clinical Ophthalmology Knowledge Engine)
+ * Mesin Respon AI Spesialis Ergonomi & Kesehatan Mata (Gemini 2.5/Flash + Knowledge Fallback)
  */
 const generateExpertResponse = async ({ query, telemetry, patientName = 'Bang Jan' }) => {
-  if (!process.env.GEMINI_API_KEY) {
-    return `Halo ${patientName}! Maaf, GEMINI_API_KEY belum dikonfigurasi di backend. Fitur chatbot pintar sedang tidak aktif.`;
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return getFallbackKnowledgeResponse({ query, telemetry, patientName });
   }
+
+  const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
   const telemetryData = telemetry ? 
     `Data telemetry pengguna hari ini: 
@@ -43,11 +115,14 @@ ${telemetryData}
 Pertanyaan pengguna: "${query}"`;
 
   try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const geminiModel = genAI.getGenerativeModel({ model: modelName });
     const result = await geminiModel.generateContent(prompt);
     return result.response.text();
   } catch (e) {
-    console.error("Gemini API Error:", e);
-    return `Maaf ${patientName}, saat ini AI Teman Soca sedang mengalami gangguan sistem saat menghubungi server Gemini.`;
+    console.error("Gemini API Error (model: " + modelName + "):", e.message || e);
+    // Coba fallback ke knowledge engine jika Gemini error
+    return getFallbackKnowledgeResponse({ query, telemetry, patientName });
   }
 };
 
