@@ -34,6 +34,8 @@ app.use('/api/resume', require('./routes/resume.routes'));
 app.use('/api/settings', require('./routes/settings.routes'));
 app.use('/api/robot', require('./routes/robot.routes'));
 app.use('/api/robots', require('./routes/robot.routes'));
+app.use('/api/reports', require('./routes/report.routes'));
+app.use('/api/companion', require('./routes/companion.routes'));
 
 // Global error handler
 app.use(errorHandler);

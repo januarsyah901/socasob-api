@@ -169,6 +169,36 @@ const getLogByDate = async (robotId, dateStr) => {
   return await DailyLog.findOne({ robotId, date: dateStr });
 };
 
+/**
+ * Mencatat penyelesaian sesi istirahat/senam mata (Micro-Break 20-20-20)
+ * @param {string} robotId
+ * @param {number} duration - durasi istirahat dalam detik (default: 20)
+ */
+const recordBreak = async (robotId, duration = 20) => {
+  if (!robotId) return null;
+  const today = getLocalDateString();
+  const now = new Date();
+  const startTime = new Date(now.getTime() - duration * 1000);
+
+  const breakSession = {
+    startTime,
+    endTime: now,
+    peakDistance: 'Jauh'
+  };
+
+  await DailyLog.findOneAndUpdate(
+    { robotId, date: today },
+    {
+      $inc: { farDuration: duration },
+      $push: { sessions: breakSession }
+    },
+    { upsert: true, new: true }
+  );
+
+  await recalculateMetrics(robotId);
+  return await DailyLog.findOne({ robotId, date: today });
+};
+
 module.exports = {
   getTodayLog,
   updateDailyDuration,
@@ -177,5 +207,6 @@ module.exports = {
   recalculateMetrics,
   getWeeklyLogs,
   getLogByDate,
-  getLocalDateString
+  getLocalDateString,
+  recordBreak
 };

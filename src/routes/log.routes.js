@@ -280,4 +280,51 @@ router.delete('/', async (req, res, next) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/log/break:
+ *   post:
+ *     summary: Catat penyelesaian sesi istirahat mata (Micro-Break 20-20-20)
+ *     tags: [Log]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - robotId
+ *             properties:
+ *               robotId:
+ *                 type: string
+ *                 example: "fadfa566"
+ *               duration:
+ *                 type: number
+ *                 example: 20
+ *     responses:
+ *       200:
+ *         description: Berhasil mencatat sesi istirahat
+ */
+router.post('/break', async (req, res, next) => {
+  try {
+    const { robotId, duration = 20 } = req.body;
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'robotId wajib diisi'
+      });
+    }
+
+    const updatedLog = await logService.recordBreak(robotId, duration);
+
+    res.status(200).json({
+      success: true,
+      message: 'Sesi istirahat mata 20-20-20 berhasil dicatat.',
+      data: updatedLog
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

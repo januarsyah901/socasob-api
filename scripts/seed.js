@@ -20,6 +20,8 @@ const mongoose = require('mongoose');
 const DailyLog = require('../src/models/DailyLog');
 const Settings = require('../src/models/Settings');
 const Robot = require('../src/models/Robot');
+const Report = require('../src/models/Report');
+const { generateReport } = require('../src/services/reportService');
 
 const RESET = process.argv.includes('--reset');
 
@@ -189,7 +191,8 @@ const seed = async () => {
       await DailyLog.deleteMany({});
       await Settings.deleteMany({});
       await Robot.deleteMany({});
-      console.log('✅ Cleared DailyLog, Settings, and Robot collections.\n');
+      await Report.deleteMany({});
+      console.log('✅ Cleared DailyLog, Settings, Robot, and Report collections.\n');
     }
 
     // ============================================================
@@ -280,15 +283,30 @@ const seed = async () => {
     console.log(`   Total    : ${inserted + skipped}`);
 
     // ============================================================
+    // SEED: Medical Reports
+    // ============================================================
+    console.log('\n📄 Seeding Medical Reports...');
+    const existingReports = await Report.find({ robotId: ROBOT_ID });
+    if (existingReports.length === 0) {
+      await generateReport({ robotId: ROBOT_ID, patientName: 'Bang Jan', period: '7days' });
+      await generateReport({ robotId: ROBOT_ID, patientName: 'Bang Jan', period: '30days' });
+      console.log('✅ Generated 2 initial medical reports (7days, 30days).');
+    } else {
+      console.log(`⏭️  Reports already exist (${existingReports.length} documents), skipping generation.`);
+    }
+
+    // ============================================================
     // RINGKASAN
     // ============================================================
     const totalLogs = await DailyLog.countDocuments();
     const totalSettings = await Settings.countDocuments();
+    const totalReports = await Report.countDocuments();
 
     console.log('\n====================================================');
     console.log('🎉 Seed selesai!');
     console.log(`   📄 DailyLog di DB : ${totalLogs} dokumen`);
     console.log(`   ⚙️  Settings di DB  : ${totalSettings} dokumen`);
+    console.log(`   📑 Reports di DB   : ${totalReports} dokumen`);
     console.log('====================================================\n');
 
   } catch (err) {
