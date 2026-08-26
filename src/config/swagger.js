@@ -145,11 +145,6 @@ const options = {
               description: 'Persentase waktu jarak jauh',
               example: 70,
             },
-            eyeHealthScore: {
-              type: 'number',
-              description: 'Skor kesehatan mata',
-              example: 85,
-            },
             totalHours: {
               type: 'number',
               description: 'Total jam pemakaian',

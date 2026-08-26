@@ -38,12 +38,6 @@ const ReportSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  eyeHealthScore: {
-    type: Number,
-    min: 0,
-    max: 100,
-    required: true
-  },
   myopiaRisk: {
     type: String,
     enum: ['Rendah', 'Sedang', 'Tinggi'],

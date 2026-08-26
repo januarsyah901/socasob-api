@@ -1,5 +1,4 @@
 const {
-  calculateEyeHealthScore,
   calculateRiskLevels,
   calculateEyeStatus
 } = require('../src/services/eyeHealthEngine');
@@ -10,11 +9,7 @@ describe('Report Generation & Telemetry Calculation Tests', () => {
     const totalFarSec = 14400; // 240 mins
     const totalBlinks = 3500;
     const restCompliance = 85;
-
-    const score = calculateEyeHealthScore(totalNearSec, totalFarSec, totalBlinks, restCompliance);
     const risks = calculateRiskLevels(totalNearSec, totalFarSec);
-
-    expect(score).toBeGreaterThan(70);
     expect(risks.myopiaRisk).toBe('Rendah');
     expect(risks.fatigueRisk).toBe('Rendah');
   });

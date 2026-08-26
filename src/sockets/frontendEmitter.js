@@ -43,7 +43,7 @@ const emitEyeDistance = (distanceData) => {
 
 /**
  * Mengirimkan status kesehatan mata berkala ke frontend
- * @param {Object} statusData - { status, score, indicators: { eyeFatigue, myopiaRisk, postureWarning, blinkRate }, timestamp }
+ * @param {Object} statusData - { status, indicators: { eyeFatigue, myopiaRisk, postureWarning, blinkRate }, timestamp }
  */
 const emitEyeStatus = (statusData) => {
   try {

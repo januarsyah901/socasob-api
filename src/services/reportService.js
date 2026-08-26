@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const Report = require('../models/Report');
 const DailyLog = require('../models/DailyLog');
 const {
-  calculateEyeHealthScore,
   calculateRiskLevels
 } = require('./eyeHealthEngine');
 
@@ -98,11 +97,7 @@ const generateReport = async ({ robotId, patientName = 'Bang Jan', period = '7da
       ? Math.round((totalBlinks / totalMin) * 10) / 10
       : 15.0;
 
-  const eyeHealthScore =
-    totalSec > 0
-      ? calculateEyeHealthScore(totalNearSec, totalFarSec, totalBlinks, restCompliance)
-      : 86;
-
+  
   const risks =
     totalSec > 0
       ? calculateRiskLevels(totalNearSec, totalFarSec)
@@ -161,11 +156,7 @@ const generateReport = async ({ robotId, patientName = 'Bang Jan', period = '7da
     }`
   );
 
-  const examinerNotes = `Pasien menunjukkan indeks kesehatan penglihatan ${eyeHealthScore}/100 dengan risiko miopia ${risks.myopiaRisk}. Disarankan ${
-    eyeHealthScore >= 80
-      ? 'mempertahankan kebiasaan ergonomis saat ini dan melanjutkan pemantauan SocaSob.'
-      : 'meningkatkan frekuensi senam mata 20-20-20 dan berkonsultasi bila timbul gejala pusing atau buram.'
-  }`;
+  const examinerNotes = `Pasien menunjukkan risiko miopia ${risks.myopiaRisk}. Disarankan mempertahankan kebiasaan ergonomis dan berkonsultasi bila timbul gejala pusing atau buram.`;
 
   // Unique report ID
   const reportId = `SOCA-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -178,7 +169,6 @@ const generateReport = async ({ robotId, patientName = 'Bang Jan', period = '7da
     period,
     periodLabel,
     dateRange,
-    eyeHealthScore,
     myopiaRisk: risks.myopiaRisk,
     fatigueRisk: risks.fatigueRisk,
     cvsRisk,

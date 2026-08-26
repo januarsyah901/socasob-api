@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const DailyLog = require('../models/DailyLog');
 const {
-  calculateEyeHealthScore,
   calculateRiskLevels
 } = require('../services/eyeHealthEngine');
 
@@ -87,7 +86,6 @@ router.get('/', async (req, res, next) => {
     const nearPercent = totalSec > 0 ? Math.round((totalNear / totalSec) * 100) : 0;
     const farPercent = totalSec > 0 ? 100 - nearPercent : 100;
 
-    const eyeHealthScore = calculateEyeHealthScore(totalNear, totalFar, totalBlinks, avgRestCompliance);
     const risks = calculateRiskLevels(totalNear, totalFar);
 
     const avgDistance = totalSec > 0
@@ -104,7 +102,6 @@ router.get('/', async (req, res, next) => {
         restCompliance: avgRestCompliance,
         nearPercent,
         farPercent,
-        eyeHealthScore,
         totalHours: Math.round(totalHours * 10) / 10,
         totalDaysMonitored: logs.length
       }

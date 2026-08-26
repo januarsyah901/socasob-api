@@ -1,7 +1,7 @@
 const logService = require('../services/logService');
 const timerService = require('../services/timerService');
 const { isRobotValidAndActive, touchRobotLastSeen } = require('../services/robotService');
-const { calculateEyeHealthScore, calculateRiskLevels } = require('../services/eyeHealthEngine');
+const { calculateRiskLevels } = require('../services/eyeHealthEngine');
 
 // ============================================================
 // State per robot_id (Map menggantikan variabel global tunggal)
@@ -42,7 +42,6 @@ const startWatchdog = (io, robotId) => {
       // Emit status disconnected hanya ke room robot ini
       io.to(`robot:${robotId}`).emit('eye-status', {
         status: 'disconnected',
-        score: 0,
         indicators: { eyeFatigue: 0, myopiaRisk: 0, postureWarning: false, blinkRate: 0 },
         timestamp: new Date().toISOString()
       });
@@ -118,15 +117,11 @@ const handleEyeDetection = async (io, payload) => {
 
         const totalSec = log.nearDuration + log.farDuration;
         const risks = calculateRiskLevels(log.nearDuration, log.farDuration);
-        const score = calculateEyeHealthScore(
-          log.nearDuration, log.farDuration, log.blinkCount, log.restCompliance
-        );
-        const totalMin = totalSec / 60;
+                const totalMin = totalSec / 60;
         const blinkRate = totalMin > 0 ? (log.blinkCount / totalMin) : 0;
 
         io.to(`robot:${robotId}`).emit('eye-status', {
           status: log.eyeHealthStatus,
-          score,
           indicators: {
             eyeFatigue: risks.fatigueRisk === 'Tinggi' ? 85 : risks.fatigueRisk === 'Sedang' ? 45 : 10,
             myopiaRisk: risks.myopiaRisk === 'Tinggi' ? 85 : risks.myopiaRisk === 'Sedang' ? 45 : 10,
@@ -204,6 +199,21 @@ const handleMinuteSummary = async (io, summary) => {
 };
 
 // ============================================================
+// Handler untuk event hardware / aktuator dari ML
+// ============================================================
+
+/**
+ * Memproses event status hardware/aktuator (LCD & Speaker) dari ML.
+ * @param {Server} io
+ * @param {Object} payload - { robot_id, lcd_command, speaker_command, fatigue_duration_sec, break_remaining_sec, work_elapsed_sec }
+ */
+const handleHardwareStatus = async (io, payload) => {
+  if (!payload || !payload.robot_id) return;
+  const { robot_id: robotId } = payload;
+  io.to(`robot:${robotId}`).emit('hardware-status', payload);
+};
+
+// ============================================================
 // Handler untuk event subscribe dari FE
 // ============================================================
 
@@ -240,6 +250,8 @@ const registerPythonHandlers = (socket, io) => {
   // --- Event dari ML ---
   socket.on('py-eye-detection', (payload) => handleEyeDetection(io, payload));
   socket.on('py-minute-summary', (payload) => handleMinuteSummary(io, payload));
+  socket.on('py-hardware-status', (payload) => handleHardwareStatus(io, payload));
+  socket.on('hardware', (payload) => handleHardwareStatus(io, payload));
 
   // --- Event dari FE ---
   socket.on('subscribe-robot', ({ robot_id }) => handleSubscribeRobot(socket, robot_id));

@@ -1,6 +1,5 @@
 const {
   calculateEyeStatus,
-  calculateEyeHealthScore,
   calculateRiskLevels,
   calculateRestCompliance
 } = require('../src/services/eyeHealthEngine');
@@ -22,13 +21,7 @@ describe('Eye Health Engine Tests', () => {
     expect(status).toBe('risk_fatigue');
   });
 
-  test('calculateEyeHealthScore should deduct points for near duration', () => {
-    const scoreNormal = calculateEyeHealthScore(0, 100, 20, 100);
-    const scoreBad = calculateEyeHealthScore(50, 50, 20, 100);
-    expect(scoreNormal).toBe(100);
-    expect(scoreBad).toBeLessThan(100);
-  });
-
+  
   test('calculateRiskLevels should return correct risk categories', () => {
     const risks = calculateRiskLevels(70, 30); // 70% near
     expect(risks.myopiaRisk).toBe('Tinggi');

@@ -1,7 +1,6 @@
 const DailyLog = require('../models/DailyLog');
 const {
   calculateEyeStatus,
-  calculateEyeHealthScore,
   calculateRestCompliance
 } = require('./eyeHealthEngine');
 

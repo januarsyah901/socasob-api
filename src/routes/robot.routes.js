@@ -270,7 +270,7 @@ router.get('/health', async (req, res, next) => {
  */
 router.post('/alert', async (req, res, next) => {
   try {
-    const { robotId, status, score, message } = req.body;
+    const { robotId, status, message } = req.body;
 
     if (!robotId) {
       return res.status(400).json({
@@ -285,7 +285,6 @@ router.post('/alert', async (req, res, next) => {
       const io = getIO();
       io.to(`robot:${robotId}`).emit('eye-status', {
         status: status || 'risk_myopia',
-        score: score !== undefined ? score : 45,
         indicators: {
           eyeFatigue: 75,
           myopiaRisk: 85,
@@ -299,7 +298,7 @@ router.post('/alert', async (req, res, next) => {
       return res.status(200).json({
         success: true,
         message: `Peringatan berhasil dikirim ke room robot:${robotId}`,
-        data: { robotId, status, score, message }
+        data: { robotId, status, message }
       });
     } catch (err) {
       return res.status(503).json({

@@ -29,43 +29,7 @@ const calculateEyeStatus = (nearDuration, farDuration) => {
   return 'normal';
 };
 
-/**
- * Menghitung skor kesehatan mata akumulatif (0 - 100)
- * @param {number} nearDuration - detik dekat
- * @param {number} farDuration - detik jauh
- * @param {number} blinkCount - total kedipan
- * @param {number} restCompliance - tingkat kepatuhan istirahat (0 - 100)
- * @returns {number} - Skor (integer 0-100)
- */
-const calculateEyeHealthScore = (nearDuration, farDuration, blinkCount, restCompliance = 100) => {
-  const total = nearDuration + farDuration;
-  if (total === 0) return 100;
 
-  let score = 100;
-
-  // Faktor 1: Jarak Layar (Bobot Maksimal Pengurangan: 40 poin)
-  const nearRatio = nearDuration / total;
-  score -= nearRatio * 40;
-
-  // Faktor 2: Kedipan Mata (Blink Rate) (Bobot Maksimal Pengurangan: 30 poin)
-  // Blink rate ideal: 12-15 kedipan per menit (atau 0.2 - 0.25 kedipan per detik)
-  const totalMinutes = total / 60;
-  if (totalMinutes > 0.5) { // Hanya hitung jika durasi cukup (minimal 30 detik)
-    const blinkRate = blinkCount / totalMinutes;
-    if (blinkRate < 12) {
-      // Kurangi skor proporsional jika kurang berkedip (blink rate < 12)
-      const deficit = 12 - blinkRate;
-      score -= Math.min(30, deficit * 2.5);
-    }
-  }
-
-  // Faktor 3: Kepatuhan Istirahat (Rest Compliance) (Bobot Maksimal Pengurangan: 30 poin)
-  const complianceDeficit = 100 - restCompliance;
-  score -= (complianceDeficit / 100) * 30;
-
-  // Pastikan skor berada dalam batas 0 - 100
-  return Math.max(0, Math.min(100, Math.round(score)));
-};
 
 /**
  * Menghitung tingkat risiko miopia dan kelelahan mata
@@ -178,7 +142,6 @@ const calculateRestCompliance = (sessions, totalDuration) => {
 
 module.exports = {
   calculateEyeStatus,
-  calculateEyeHealthScore,
   calculateRiskLevels,
   calculateRestCompliance
 };

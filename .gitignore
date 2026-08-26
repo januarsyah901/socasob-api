@@ -39,3 +39,8 @@ Thumbs.db
 # Test coverage
 coverage/
 .nyc_output/
+
+# Temporary update scripts
+update*.js
+fix*.js
+
