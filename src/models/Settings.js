@@ -2,16 +2,15 @@ const mongoose = require('mongoose');
 
 const SettingsSchema = new mongoose.Schema({
   userId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
     unique: true,
-    default: 'default_user',
     index: true
   },
   robotId: {
     type: String,
-    required: true,
-    default: 'fadfa566'
+    default: ''
   },
   robotIp: {
     type: String,

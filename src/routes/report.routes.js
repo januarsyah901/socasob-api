@@ -98,7 +98,27 @@ router.post(
         });
       }
 
-      const { robotId, patientName, period } = req.body;
+      const { robotId, period } = req.body;
+
+      // Auto-fill patientName dari user yang login (jika ada JWT token)
+      let patientName = req.body.patientName;
+      if (!patientName) {
+        try {
+          const jwt = require('jsonwebtoken');
+          const User = require('../models/User');
+          const authHeader = req.headers.authorization;
+          if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const user = await User.findById(decoded.id).select('fullName');
+            if (user) patientName = user.fullName;
+          }
+        } catch (_) {
+          // Tidak ada token atau token invalid — lanjut tanpa nama
+        }
+        patientName = patientName || 'Pasien';
+      }
+
       const report = await generateReport({ robotId, patientName, period });
 
       res.status(201).json({
