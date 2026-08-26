@@ -47,6 +47,8 @@ router.get('/', async (req, res, next) => {
 
     const formatted = robots.map(r => ({
       ...r,
+      // Pastikan ownerId ter-expose ke frontend (untuk filter per-user)
+      ownerId: r.ownerId ? r.ownerId.toString() : null,
       isOnline: checkIsOnline(r.robotId)
     }));
 
