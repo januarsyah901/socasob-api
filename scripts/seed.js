@@ -203,25 +203,19 @@ const seed = async () => {
       { robotId: ROBOT_ID },
       {
         robotId: ROBOT_ID,
+        serialNumber: 'SOCA-TEST', // ketik ini di Settings > Hubungkan Robot
         name: 'SocaSob ESP32 Utama',
         status: 'active',
         ipAddress: '192.168.1.105',
-        description: 'Robot monitoring default'
+        description: 'Robot monitoring default',
+        ownerId: null
       },
       { upsert: true, new: true }
     );
-    console.log(`✅ Robot '${ROBOT_ID}' seeded.\n`);
+    console.log(`✅ Robot '${ROBOT_ID}' seeded. Serial Number: SOCA-TEST\n`);
 
-    // ============================================================
-    // SEED: Settings
-    // ============================================================
-    console.log('⚙️  Seeding Settings...');
-    await Settings.findOneAndUpdate(
-      { userId: 'default_user' },
-      settingsSeedData,
-      { upsert: true, new: true }
-    );
-    console.log('✅ Settings seeded.\n');
+    // NOTE: Settings sekarang per-user — dibuat otomatis saat GET /api/settings
+
 
     // ============================================================
     // SEED: DailyLog - 30 hari terakhir

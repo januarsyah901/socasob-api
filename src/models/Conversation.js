@@ -28,7 +28,8 @@ const ConversationSchema = new mongoose.Schema({
     index: true
   },
   userId: {
-    type: String,
+    // Mixed: mendukung ObjectId (user baru) dan string legacy 'default_user'
+    type: mongoose.Schema.Types.Mixed,
     default: 'default_user',
     index: true
   },

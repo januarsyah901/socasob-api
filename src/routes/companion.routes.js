@@ -16,18 +16,38 @@ const {
  */
 
 /**
+ * Helper: ekstrak userId dari JWT (opsional — tidak throw error jika tidak ada token)
+ */
+const extractUserFromToken = (req) => {
+  try {
+    const jwt = require('jsonwebtoken');
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      return jwt.verify(token, process.env.JWT_SECRET);
+    }
+  } catch (_) {}
+  return null;
+};
+
+/**
  * @swagger
  * /api/companion/conversations:
  *   get:
- *     summary: Ambil daftar seluruh riwayat percakapan AI Companion
+ *     summary: Ambil daftar riwayat percakapan AI Companion milik user yang login
  *     tags: [Companion]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Berhasil mengambil daftar percakapan
  */
 router.get('/conversations', async (req, res, next) => {
   try {
-    const userId = req.query.userId || 'default_user';
+    // Prioritas: JWT token → query param (legacy) → 'default_user'
+    const decoded = extractUserFromToken(req);
+    const userId = decoded?.id || req.query.userId || 'default_user';
+
     const list = await getConversations(userId);
 
     res.status(200).json({
@@ -85,6 +105,8 @@ router.get('/conversations/:id', async (req, res, next) => {
  *   post:
  *     summary: Kirim pertanyaan ke AI Teman Soca dan dapatkan balasan cerdas
  *     tags: [Companion]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -130,7 +152,27 @@ router.post(
         });
       }
 
-      const { message, conversationId, robotId, patientName, userId } = req.body;
+      const { message, conversationId, robotId } = req.body;
+
+      // Auto-fill userId & patientName dari JWT jika ada token
+      const decoded = extractUserFromToken(req);
+      let userId = req.body.userId || 'default_user';
+      let patientName = req.body.patientName;
+
+      if (decoded?.id) {
+        userId = decoded.id;
+        // Ambil nama user dari DB jika patientName tidak dikirim
+        if (!patientName) {
+          try {
+            const User = require('../models/User');
+            const user = await User.findById(decoded.id).select('fullName');
+            if (user) patientName = user.fullName;
+          } catch (_) {}
+        }
+      }
+
+      patientName = patientName || 'Pengguna';
+
       const result = await sendMessage({
         message,
         conversationId,
