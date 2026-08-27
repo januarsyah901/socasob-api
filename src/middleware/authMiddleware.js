@@ -59,6 +59,7 @@ const sendTokenResponse = (user, statusCode, res) => {
     phoneNumber: user.phoneNumber,
     dateOfBirth: user.dateOfBirth,
     emergencyContact: user.emergencyContact,
+    role: user.role,
     createdAt: user.createdAt
   };
 
@@ -69,4 +70,18 @@ const sendTokenResponse = (user, statusCode, res) => {
   });
 };
 
-module.exports = { protect, sendTokenResponse };
+/**
+ * Middleware otorisasi — hanya mengizinkan user dengan role 'admin'.
+ * Wajib dipanggil setelah `protect`.
+ */
+const adminOnly = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: 'Akses ditolak. Hanya admin yang diizinkan.'
+    });
+  }
+  next();
+};
+
+module.exports = { protect, sendTokenResponse, adminOnly };

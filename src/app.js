@@ -37,6 +37,7 @@ app.use('/api/robot', require('./routes/robot.routes'));
 app.use('/api/robots', require('./routes/robot.routes'));
 app.use('/api/reports', require('./routes/report.routes'));
 app.use('/api/companion', require('./routes/companion.routes'));
+app.use('/api/admin', require('./routes/admin.routes'));
 
 // Global error handler
 app.use(errorHandler);
