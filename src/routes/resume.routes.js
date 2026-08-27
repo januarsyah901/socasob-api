@@ -90,7 +90,7 @@ router.get('/', async (req, res, next) => {
 
     const avgDistance = totalSec > 0
       ? Math.round(((totalNear * 25) + (totalFar * 40)) / totalSec)
-      : 35;
+      : 0;
 
     res.status(200).json({
       success: true,

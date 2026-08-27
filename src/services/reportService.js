@@ -32,7 +32,7 @@ const formatDateStr = (dateObj) => {
 /**
  * Generate dan simpan Laporan Medis baru berdasarkan data DailyLog riil
  */
-const generateReport = async ({ robotId, patientName = 'Bang Jan', period = '7days' }) => {
+const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7days' }) => {
   const now = new Date();
   let daysBack = 7;
   let periodLabel = '7 Hari Terakhir';
@@ -90,18 +90,17 @@ const generateReport = async ({ robotId, patientName = 'Bang Jan', period = '7da
   const totalMin = nearDurationMin + farDurationMin;
 
   const restCompliance =
-    logs.length > 0 ? Math.round(totalCompliance / logs.length) : 85;
+    logs.length > 0 ? Math.round(totalCompliance / logs.length) : 0;
 
   const blinkRatePerMin =
     totalMin > 0
       ? Math.round((totalBlinks / totalMin) * 10) / 10
-      : 15.0;
+      : 0;
 
-  
   const risks =
     totalSec > 0
       ? calculateRiskLevels(totalNearSec, totalFarSec)
-      : { myopiaRisk: 'Rendah', fatigueRisk: 'Sedang' };
+      : { myopiaRisk: 'Rendah', fatigueRisk: 'Rendah' };
 
   const cvsRisk =
     risks.fatigueRisk === 'Tinggi'
@@ -113,50 +112,55 @@ const generateReport = async ({ robotId, patientName = 'Bang Jan', period = '7da
   const avgDistanceCm =
     totalSec > 0
       ? Math.round(((totalNearSec * 25) + (totalFarSec * 40)) / totalSec)
-      : 38.5;
+      : 0;
 
   // Generate Dynamic Clinical Notes based on actual telemetries
   const clinicalNotes = [];
+  let examinerNotes = '-';
 
-  if (avgDistanceCm >= 30) {
-    clinicalNotes.push(
-      `Jarak rata-rata mata terhadap layar monitor berada pada batas aman yang dianjurkan (${avgDistanceCm} cm ≥ 30 cm).`
-    );
+  if (totalSec === 0) {
+    clinicalNotes.push('Belum ada rekaman data telemetri yang terdeteksi untuk periode ini.');
   } else {
+    if (avgDistanceCm >= 30) {
+      clinicalNotes.push(
+        `Jarak rata-rata mata terhadap layar monitor berada pada batas aman yang dianjurkan (${avgDistanceCm} cm ≥ 30 cm).`
+      );
+    } else {
+      clinicalNotes.push(
+        `Jarak rata-rata mata terhadap monitor tercatat terlalu dekat (${avgDistanceCm} cm < 30 cm). Membutuhkan penyesuaian posisi duduk dan tata letak layar kerja.`
+      );
+    }
+
+    if (blinkRatePerMin >= 12) {
+      clinicalNotes.push(
+        `Frekuensi berkedip tercatat ${blinkRatePerMin} kedipan/menit, sangat baik dalam menjaga stabilitas hidrasi tear film kornea.`
+      );
+    } else {
+      clinicalNotes.push(
+        `Frekuensi berkedip rendah (${blinkRatePerMin} kedipan/menit < standar 12-15/mnt). Berisiko menimbulkan Computer Vision Syndrome (CVS) dan mata kering.`
+      );
+    }
+
+    if (nearDurationMin > 60 && risks.myopiaRisk !== 'Rendah') {
+      clinicalNotes.push(
+        `Ditemukan akumulasi tatap dekat berlebih (${nearDurationMin} menit). Disarankan membatasi sesi dekat beruntun maksimal 45 menit.`
+      );
+    } else {
+      clinicalNotes.push(
+        `Pola pergantian tatap jauh terpelihara dengan baik (${farDurationMin} menit aman), efektif merelaksasikan otot akomodasi siliaris.`
+      );
+    }
+
     clinicalNotes.push(
-      `Jarak rata-rata mata terhadap monitor tercatat terlalu dekat (${avgDistanceCm} cm < 30 cm). Membutuhkan penyesuaian posisi duduk dan tata letak layar kerja.`
+      `Tingkat kepatuhan istirahat 20-20-20 tercatat ${restCompliance}%. ${
+        restCompliance >= 70
+          ? 'Sangat efektif dalam menekan risiko progresi miopia dan kelelahan visual.'
+          : 'Perlu peningkatan disiplin jeda micro-break 20 detik secara berkala.'
+      }`
     );
+
+    examinerNotes = `Pasien menunjukkan risiko miopia ${risks.myopiaRisk}. Disarankan mempertahankan kebiasaan ergonomis dan berkonsultasi bila timbul gejala pusing atau buram.`;
   }
-
-  if (blinkRatePerMin >= 12) {
-    clinicalNotes.push(
-      `Frekuensi berkedip tercatat ${blinkRatePerMin} kedipan/menit, sangat baik dalam menjaga stabilitas hidrasi tear film kornea.`
-    );
-  } else {
-    clinicalNotes.push(
-      `Frekuensi berkedip rendah (${blinkRatePerMin} kedipan/menit < standar 12-15/mnt). Berisiko menimbulkan Computer Vision Syndrome (CVS) dan mata kering.`
-    );
-  }
-
-  if (nearDurationMin > 60 && risks.myopiaRisk !== 'Rendah') {
-    clinicalNotes.push(
-      `Ditemukan akumulasi tatap dekat berlebih (${nearDurationMin} menit). Disarankan membatasi sesi dekat beruntun maksimal 45 menit.`
-    );
-  } else {
-    clinicalNotes.push(
-      `Pola pergantian tatap jauh terpelihara dengan baik (${farDurationMin} menit aman), efektif merelaksasikan otot akomodasi siliaris.`
-    );
-  }
-
-  clinicalNotes.push(
-    `Tingkat kepatuhan istirahat 20-20-20 tercatat ${restCompliance}%. ${
-      restCompliance >= 70
-        ? 'Sangat efektif dalam menekan risiko progresi miopia dan kelelahan visual.'
-        : 'Perlu peningkatan disiplin jeda micro-break 20 detik secara berkala.'
-    }`
-  );
-
-  const examinerNotes = `Pasien menunjukkan risiko miopia ${risks.myopiaRisk}. Disarankan mempertahankan kebiasaan ergonomis dan berkonsultasi bila timbul gejala pusing atau buram.`;
 
   // Unique report ID
   const reportId = `SOCA-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -164,7 +168,7 @@ const generateReport = async ({ robotId, patientName = 'Bang Jan', period = '7da
   const newReport = new Report({
     reportId,
     robotId,
-    patientName: patientName.trim() || 'Bang Jan',
+    patientName: patientName.trim() || 'Pengguna',
     title,
     period,
     periodLabel,

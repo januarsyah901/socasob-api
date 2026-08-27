@@ -16,7 +16,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 /**
  * Fallback knowledge engine jika API Gemini tidak aktif/bermasalah
  */
-const getFallbackKnowledgeResponse = ({ query, telemetry, patientName = 'Bang Jan' }) => {
+const getFallbackKnowledgeResponse = ({ query, telemetry, patientName = 'Pengguna' }) => {
   const q = query.toLowerCase();
 
   if (
@@ -88,7 +88,7 @@ const getFallbackKnowledgeResponse = ({ query, telemetry, patientName = 'Bang Ja
 /**
  * Mesin Respon AI Spesialis Ergonomi & Kesehatan Mata (Gemini 2.5/Flash + Knowledge Fallback)
  */
-const generateExpertResponse = async ({ query, telemetry, patientName = 'Bang Jan' }) => {
+const generateExpertResponse = async ({ query, telemetry, patientName = 'Pengguna' }) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return getFallbackKnowledgeResponse({ query, telemetry, patientName });
@@ -129,7 +129,7 @@ Pertanyaan pengguna: "${query}"`;
 /**
  * Kirim pesan dan dapatkan balasan AI cerdas
  */
-const sendMessage = async ({ conversationId, userId = 'default_user', message, robotId, patientName = 'Bang Jan' }) => {
+const sendMessage = async ({ conversationId, userId = 'default_user', message, robotId, patientName = 'Pengguna' }) => {
   const cleanMsg = (message || '').trim();
   if (!cleanMsg) throw new Error('Pesan tidak boleh kosong');
 
