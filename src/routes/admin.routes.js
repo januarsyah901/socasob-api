@@ -355,40 +355,42 @@ router.delete('/robots/:robotId', async (req, res, next) => {
  */
 router.get('/ml-config', async (req, res, next) => {
   try {
-    const mlUrl = process.env.ML_URL;
-    if (!mlUrl) {
-      return res.status(503).json({
-        success: false,
-        error: 'ML server tidak dikonfigurasi (ML_URL tidak ada di environment).'
-      });
-    }
+    const mlUrl = process.env.ML_URL || 'http://srv-captain--socasob-ml:5000';
 
     const response = await fetch(`${mlUrl}/api/config`);
     const data = await response.json();
 
-    res.status(response.status).json({ success: response.ok, data });
+    if (!response.ok) {
+      throw new Error(data.error || 'Gagal mengambil konfigurasi ML');
+    }
+
+    res.status(200).json(data);
   } catch (error) {
-    next(error);
+    res.status(503).json({
+      success: false,
+      error: `Koneksi ke ML Server gagal: ${error.message}`
+    });
   }
 });
 
 /**
- * POST /api/admin/ml-config
- * Update konfigurasi di ML server (forward body)
+ * @swagger
+ * /api/admin/ml-config:
+ *   post:
+ *     summary: Update konfigurasi ML Server
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
  */
 router.post('/ml-config', async (req, res, next) => {
   try {
-    const mlUrl = process.env.ML_URL;
-    if (!mlUrl) {
-      return res.status(503).json({
-        success: false,
-        error: 'ML server tidak dikonfigurasi (ML_URL tidak ada di environment).'
-      });
-    }
+    const mlUrl = process.env.ML_URL || 'http://srv-captain--socasob-ml:5000';
 
     const response = await fetch(`${mlUrl}/api/config`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(req.body)
     });
     const data = await response.json();
