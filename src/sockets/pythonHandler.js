@@ -2,6 +2,7 @@ const logService = require('../services/logService');
 const timerService = require('../services/timerService');
 const { isRobotValidAndActive, touchRobotLastSeen } = require('../services/robotService');
 const { calculateRiskLevels } = require('../services/eyeHealthEngine');
+const { sendPushToRobot } = require('../services/pushService');
 
 // ============================================================
 // State per robot_id (Map menggantikan variabel global tunggal)
@@ -87,6 +88,16 @@ const handleEyeDetection = async (io, payload) => {
   state.lastDetectionTime = new Date();
 
   // 1. Kirim status jarak real-time ke room robot ini
+  if (distance === 'Dekat') {
+    sendPushToRobot(
+      robotId, 
+      '⚠️ Peringatan Jarak Layar', 
+      'Jarak mata Anda kurang dari 30 cm. Mundurkan posisi duduk!',
+      'socasob-distance-alert',
+      'distance'
+    );
+  }
+
   io.to(`robot:${robotId}`).emit('eye-distance', {
     distance,
     confidence: state.confidence,
@@ -116,6 +127,17 @@ const handleEyeDetection = async (io, payload) => {
         if (!log) return;
 
         const totalSec = log.nearDuration + log.farDuration;
+        
+        if (log.eyeHealthStatus === 'risk_fatigue') {
+          sendPushToRobot(
+            robotId,
+            '🌿 Waktunya Istirahat Mata',
+            'Mata Anda mulai lelah. Lakukan senam mata 20 detik sekarang!',
+            'socasob-fatigue-alert',
+            'fatigue'
+          );
+        }
+
         const risks = calculateRiskLevels(log.nearDuration, log.farDuration);
                 const totalMin = totalSec / 60;
         const blinkRate = totalMin > 0 ? (log.blinkCount / totalMin) : 0;
