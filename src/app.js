@@ -13,11 +13,21 @@ const app = express();
 setupSwagger(app);
 
 // Middleware
-const allowedOrigin = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
+const allowedOrigins = [
+  (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, ''),
+  'http://localhost:3000',
+  'https://socasob.hallojanu.xyz',
+];
 
 app.use(cors({
-  origin: [allowedOrigin, 'http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.endsWith('.hallojanu.xyz') || origin.includes('localhost')) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
 

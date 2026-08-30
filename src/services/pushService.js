@@ -5,6 +5,10 @@ const lastPushTimes = new Map();
 const THROTTLE_MS = 60000; // 1 minute throttle for push per robot per type
 
 const sendPushToRobot = async (robotId, title, body, tag, type = 'alert') => {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    return;
+  }
+
   const now = Date.now();
   const throttleKey = `${robotId}_${type}`;
   

@@ -3,12 +3,23 @@ const router = express.Router();
 const webpush = require('web-push');
 const PushSubscription = require('../models/PushSubscription');
 
-// Setup web-push
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || 'mailto:socasob@example.com',
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+// Setup web-push safely
+const isVapidConfigured = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
+
+if (isVapidConfigured) {
+  try {
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT || 'mailto:socasob@example.com',
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY
+    );
+    console.log('[Web Push] VAPID details successfully configured.');
+  } catch (err) {
+    console.warn('[Web Push] Warning initializing VAPID details:', err.message);
+  }
+} else {
+  console.warn('[Web Push] VAPID keys not provided. Push notification features will be disabled.');
+}
 
 // Subscribe endpoint
 router.post('/subscribe', async (req, res, next) => {
