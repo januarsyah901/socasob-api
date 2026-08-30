@@ -1,0 +1,32 @@
+meta {
+  name: 5. Pair Robot via Serial (POST)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/auth/pair-robot
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "serialNumber": "SOCA-X7B9"
+  }
+}
+
+assert {
+  res.status: in [200, 404, 409]
+  res.body.success: isDefined
+}
+
+tests {
+  test("pair robot response handled", function() {
+    expect([200, 404, 409]).to.include(res.getStatus());
+  });
+}

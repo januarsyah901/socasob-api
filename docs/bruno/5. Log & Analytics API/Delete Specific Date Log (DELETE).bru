@@ -1,0 +1,26 @@
+meta {
+  name: Delete Specific Date Log (DELETE)
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/api/log/{{testDate}}?robotId={{robotId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  robotId: {{robotId}}
+}
+
+assert {
+  res.status: in [200, 404]
+  res.body.success: isDefined
+}
+
+tests {
+  test("delete specific date log handled", function() {
+    expect([200, 404]).to.include(res.getStatus());
+  });
+}

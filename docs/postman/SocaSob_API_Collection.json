@@ -1,0 +1,508 @@
+{
+	"info": {
+		"_postman_id": "c3a560d8-09a6-479d-81c5-socasob12345",
+		"name": "SocaSob API & Real-time Testing Collection",
+		"description": "Koleksi Postman lengkap untuk pengujian otomatis dan manual sistem SocaSob (Backend, Frontend, ML Server, dan Robot ESP32-CAM). Mendukung pengujian Localhost maupun Live Production.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Health & System Status",
+			"item": [
+				{
+					"name": "Backend Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Health status is healthy\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql(\"healthy\");",
+									"    pm.expect(jsonData).to.have.property(\"timestamp\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Memeriksa status hidup backend server Express.js."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Robot Device Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Returns valid robot device data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"ipAddress\");",
+									"    pm.expect(jsonData.data).to.have.property(\"macAddress\");",
+									"    pm.expect(jsonData.data).to.have.property(\"status\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/robot/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"robot",
+								"status"
+							]
+						},
+						"description": "Mengambil informasi perangkat robot aktif (IP, MAC, status, firmware version)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Robot System Health",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Returns robot system health metrics\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"uptime\");",
+									"    pm.expect(jsonData.data).to.have.property(\"cpuTemperature\");",
+									"    pm.expect(jsonData.data).to.have.property(\"wifiStrength\");",
+									"    pm.expect(jsonData.data).to.have.property(\"mlModelAccuracy\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/robot/health",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"robot",
+								"health"
+							]
+						},
+						"description": "Mengambil metrik kesehatan sistem perangkat ESP32 (suhu CPU, Wi-Fi RSSI, FPS, akurasi ML)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Settings API",
+			"item": [
+				{
+					"name": "Get User Settings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Returns user settings object\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"robotIp\");",
+									"    pm.expect(jsonData.data).to.have.property(\"audioVolume\");",
+									"    pm.expect(jsonData.data).to.have.property(\"audioEnabled\");",
+									"    pm.expect(jsonData.data).to.have.property(\"notificationEnabled\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/settings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"settings"
+							]
+						},
+						"description": "Mengambil preferensi pengaturan user saat ini dari database."
+					},
+					"response": []
+				},
+				{
+					"name": "Update User Settings",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Settings successfully updated\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.robotIp).to.eql(\"192.168.1.100\");",
+									"    pm.expect(jsonData.data.audioVolume).to.eql(75);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"robotIp\": \"192.168.1.100\",\n    \"audioVolume\": 75,\n    \"audioEnabled\": true,\n    \"notificationEnabled\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/settings",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"settings"
+							]
+						},
+						"description": "Memperbarui konfigurasi preferensi pengguna (IP Robot ESP32-CAM, Volume Audio, Notifikasi)."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Log & Analytics API",
+			"item": [
+				{
+					"name": "Get Today Log",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Returns today's daily log summary\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"date\");",
+									"    pm.expect(jsonData.data).to.have.property(\"nearDuration\");",
+									"    pm.expect(jsonData.data).to.have.property(\"farDuration\");",
+									"    pm.expect(jsonData.data).to.have.property(\"blinkCount\");",
+									"    pm.expect(jsonData.data).to.have.property(\"eyeHealthStatus\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/log/today",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"log",
+								"today"
+							]
+						},
+						"description": "Mengambil data rekapitulasi monitoring mata hari ini."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Weekly Logs",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Returns array of daily logs\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(Array.isArray(jsonData.data)).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/log/weekly",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"log",
+								"weekly"
+							]
+						},
+						"description": "Mengambil riwayat log monitoring mata selama 7 hari terakhir."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Log by Specific Date",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 or 404\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+									"});",
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"date\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/log/{{currentDate}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"log",
+								"{{currentDate}}"
+							]
+						},
+						"description": "Mengambil log monitoring pada tanggal spesifik (format YYYY-MM-DD)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get 6-Month Resume Analytics",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"Returns calculated eye health analytics\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"myopiaRisk\");",
+									"    pm.expect(jsonData.data).to.have.property(\"fatigueRisk\");",
+									"    pm.expect(jsonData.data).to.have.property(\"eyeHealthScore\");",
+									"    pm.expect(jsonData.data).to.have.property(\"restCompliance\");",
+									"    pm.expect(jsonData.data).to.have.property(\"totalHours\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/resume",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"resume"
+							]
+						},
+						"description": "Mengagregasi data monitoring 6 bulan dan menghitung risiko miopia, kelelahan, dan kepatuhan 20-20-20."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. ML Server (Vision Pipeline)",
+			"item": [
+				{
+					"name": "ML Server Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"pm.test(\"ML status is ok\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql(\"ok\");",
+									"    pm.expect(jsonData).to.have.property(\"be_connected\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{mlUrl}}/health",
+							"host": [
+								"{{mlUrl}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Health check untuk ML Flask Server dan status koneksinya ke Backend."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Latest Extracted Features",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{mlUrl}}/api/features",
+							"host": [
+								"{{mlUrl}}"
+							],
+							"path": [
+								"api",
+								"features"
+							]
+						},
+						"description": "Debug endpoint untuk melihat nilai EAR, Blink Status, dan estimasi jarak terakhir yang dihitung oleh MediaPipe."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"exec": [
+					"// Otomatis set tanggal hari ini YYYY-MM-DD",
+					"const now = new Date();",
+					"const year = now.getFullYear();",
+					"const month = String(now.getMonth() + 1).padStart(2, '0');",
+					"const day = String(now.getDate()).padStart(2, '0');",
+					"pm.collectionVariables.set('currentDate', `${year}-${month}-${day}`);"
+				],
+				"type": "text/javascript"
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"exec": [
+					""
+				],
+				"type": "text/javascript"
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://be-socasob.hallojanu.xyz",
+			"type": "string"
+		},
+		{
+			"key": "mlUrl",
+			"value": "https://socasob-ml.hallojanu.xyz",
+			"type": "string"
+		},
+		{
+			"key": "robotId",
+			"value": "fadfa566",
+			"type": "string"
+		},
+		{
+			"key": "currentDate",
+			"value": "2026-08-20",
+			"type": "string"
+		}
+	]
+}

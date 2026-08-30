@@ -1,0 +1,23 @@
+meta {
+  name: 1. ML Server Health Check (GET)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{mlUrl}}/health
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq ok
+}
+
+tests {
+  test("ml server is healthy", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal("ok");
+  });
+}

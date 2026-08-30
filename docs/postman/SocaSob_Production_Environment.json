@@ -1,0 +1,39 @@
+{
+	"id": "socasob-env-production",
+	"name": "SocaSob — Production Environment",
+	"values": [
+		{
+			"key": "baseUrl",
+			"value": "https://be-socasob.hallojanu.xyz",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "mlUrl",
+			"value": "https://socasob-ml.hallojanu.xyz",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "feUrl",
+			"value": "https://socasob.hallojanu.xyz",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "robotId",
+			"value": "fadfa566",
+			"type": "default",
+			"enabled": true
+		},
+		{
+			"key": "robotIp",
+			"value": "192.168.1.100",
+			"type": "default",
+			"enabled": true
+		}
+	],
+	"_postman_variable_scope": "environment",
+	"_postman_exported_at": "2026-08-20T14:38:00.000Z",
+	"_postman_exported_using": "Postman/11.0.0"
+}

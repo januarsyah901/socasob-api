@@ -1,0 +1,30 @@
+meta {
+  name: Record Micro Break (POST)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/log/break
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "robotId": "{{robotId}}",
+    "duration": 20
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("micro break recorded", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

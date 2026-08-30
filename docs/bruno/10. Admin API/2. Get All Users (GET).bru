@@ -1,0 +1,30 @@
+meta {
+  name: 2. Get All Users (GET)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/admin/users?page=1&limit=20
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+params:query {
+  page: 1
+  limit: 20
+}
+
+assert {
+  res.status: in [200, 401, 403]
+}
+
+tests {
+  test("get users response handled", function() {
+    expect([200, 401, 403]).to.include(res.getStatus());
+  });
+}

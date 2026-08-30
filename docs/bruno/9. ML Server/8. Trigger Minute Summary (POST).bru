@@ -1,0 +1,32 @@
+meta {
+  name: 8. Trigger Minute Summary (POST)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{mlUrl}}/api/summary/trigger
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "robot_id": "{{robotId}}",
+    "near_duration_sec": 40,
+    "far_duration_sec": 20,
+    "blink_count": 12
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("trigger minute summary handled", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

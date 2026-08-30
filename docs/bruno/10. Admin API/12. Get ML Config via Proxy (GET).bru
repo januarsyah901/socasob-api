@@ -1,0 +1,25 @@
+meta {
+  name: 12. Get ML Config via Proxy (GET)
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/admin/ml-config
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+assert {
+  res.status: in [200, 401, 403, 530, 503]
+}
+
+tests {
+  test("get ml config via admin proxy handled", function() {
+    expect([200, 401, 403, 530, 503]).to.include(res.getStatus());
+  });
+}

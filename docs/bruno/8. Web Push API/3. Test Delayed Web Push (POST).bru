@@ -1,0 +1,30 @@
+meta {
+  name: 3. Test Delayed Web Push (POST)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/push/test-delay
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "robotId": "{{robotId}}",
+    "delayMs": 3000
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("test delay push accepted", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

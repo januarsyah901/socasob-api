@@ -1,0 +1,32 @@
+meta {
+  name: 6. Send Frame Base64-JSON (POST)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{mlUrl}}/api/frame
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "robot_id": "{{robotId}}",
+    "distance_json": {
+      "distance": "{{sampleDistance}}",
+      "confidence": {{sampleConfidence}}
+    },
+    "frame_base64": "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP................................"
+  }
+}
+
+assert {
+  res.status: in [200, 400, 403]
+}
+
+tests {
+  test("send frame base64 response handled", function() {
+    expect([200, 400, 403]).to.include(res.getStatus());
+  });
+}

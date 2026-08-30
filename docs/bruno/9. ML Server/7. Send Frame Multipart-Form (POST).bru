@@ -1,0 +1,28 @@
+meta {
+  name: 7. Send Frame Multipart-Form (POST)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{mlUrl}}/api/frame
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  robot_id: {{robotId}}
+  distance: {{sampleDistance}}
+  confidence: {{sampleConfidence}}
+  frame: @file(sample_frame.jpg)
+}
+
+assert {
+  res.status: in [200, 400, 403]
+}
+
+tests {
+  test("send frame multipart handled", function() {
+    expect([200, 400, 403]).to.include(res.getStatus());
+  });
+}

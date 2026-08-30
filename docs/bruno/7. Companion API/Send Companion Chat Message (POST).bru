@@ -1,0 +1,35 @@
+meta {
+  name: Send Companion Chat Message (POST)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/companion/chat
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "message": "Bagaimana cara merelaksasi mata yang lelah?",
+    "robotId": "{{robotId}}",
+    "patientName": "Bang Jan"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("companion chat response received", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

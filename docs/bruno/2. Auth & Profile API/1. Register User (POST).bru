@@ -1,0 +1,32 @@
+meta {
+  name: 1. Register User (POST)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/auth/register
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "fullName": "Bang Jan",
+    "email": "bangjan@email.com",
+    "password": "password123",
+    "phoneNumber": "08123456789",
+    "dateOfBirth": "1998-05-20"
+  }
+}
+
+assert {
+  res.status: in [201, 400]
+  res.body.success: isDefined
+}
+
+tests {
+  test("register user response valid", function() {
+    expect([201, 400]).to.include(res.getStatus());
+  });
+}

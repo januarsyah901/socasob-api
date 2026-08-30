@@ -1,0 +1,38 @@
+meta {
+  name: 2. Login User (POST)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "bangjan@email.com",
+    "password": "password123"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+  res.body.token: isDefined
+}
+
+script:post-response {
+  if (res.status === 200 && res.body.token) {
+    bru.setVar("authToken", res.body.token);
+  }
+}
+
+tests {
+  test("login success and token returned", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+    expect(res.getBody().token).to.be.a('string');
+  });
+}

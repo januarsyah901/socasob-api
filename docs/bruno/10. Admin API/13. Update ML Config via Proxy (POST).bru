@@ -1,0 +1,32 @@
+meta {
+  name: 13. Update ML Config via Proxy (POST)
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/admin/ml-config
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "ear_threshold": 0.23,
+    "consec_frames": 4
+  }
+}
+
+assert {
+  res.status: in [200, 401, 403, 503]
+}
+
+tests {
+  test("update ml config via admin proxy handled", function() {
+    expect([200, 401, 403, 503]).to.include(res.getStatus());
+  });
+}

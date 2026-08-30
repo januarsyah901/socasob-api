@@ -1,0 +1,36 @@
+meta {
+  name: 4. Update User Profile (PUT)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/auth/profile
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "fullName": "Bang Jan Updated",
+    "phoneNumber": "081299998888",
+    "dateOfBirth": "1998-05-20",
+    "emergencyContact": "08111111111"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("profile updated successfully", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

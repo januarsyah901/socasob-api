@@ -1,0 +1,22 @@
+meta {
+  name: 4. Get Robot Detail (GET)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/robots/{{robotId}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: in [200, 404]
+  res.body.success: isDefined
+}
+
+tests {
+  test("robot detail fetched", function() {
+    expect([200, 404]).to.include(res.getStatus());
+  });
+}

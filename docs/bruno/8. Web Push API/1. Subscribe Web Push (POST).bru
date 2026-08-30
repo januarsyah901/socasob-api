@@ -1,0 +1,36 @@
+meta {
+  name: 1. Subscribe Web Push (POST)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/push/subscribe
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "robotId": "{{robotId}}",
+    "subscription": {
+      "endpoint": "https://fcm.googleapis.com/fcm/send/sample-token-endpoint",
+      "keys": {
+        "p256dh": "BNc...sampleKey==",
+        "auth": "authSecretKey=="
+      }
+    }
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.success: eq true
+}
+
+tests {
+  test("web push subscription saved", function() {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().success).to.be.true;
+  });
+}

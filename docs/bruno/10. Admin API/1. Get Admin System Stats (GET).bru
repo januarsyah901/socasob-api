@@ -1,0 +1,25 @@
+meta {
+  name: 1. Get Admin System Stats (GET)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/admin/stats
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+assert {
+  res.status: in [200, 401, 403]
+}
+
+tests {
+  test("admin stats endpoint handled", function() {
+    expect([200, 401, 403]).to.include(res.getStatus());
+  });
+}

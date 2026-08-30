@@ -1,0 +1,32 @@
+meta {
+  name: 2. Register Robot (POST)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/robots
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "robotId": "robot-demo-01",
+    "name": "Robot SocaSob Demo",
+    "ipAddress": "192.168.1.120",
+    "description": "Perangkat uji robot baru",
+    "status": "active"
+  }
+}
+
+assert {
+  res.status: in [201, 409]
+  res.body.success: isDefined
+}
+
+tests {
+  test("register robot handled", function() {
+    expect([201, 409]).to.include(res.getStatus());
+  });
+}

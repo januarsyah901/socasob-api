@@ -1,0 +1,27 @@
+meta {
+  name: Get All Conversations (GET)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/companion/conversations
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("get conversations fetched", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

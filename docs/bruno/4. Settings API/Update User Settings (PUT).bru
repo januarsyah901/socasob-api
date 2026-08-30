@@ -1,0 +1,36 @@
+meta {
+  name: Update User Settings (PUT)
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{baseUrl}}/api/settings
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "robotId": "{{robotId}}",
+    "robotIp": "{{robotIp}}",
+    "audioVolume": 80,
+    "audioEnabled": true,
+    "notificationEnabled": false
+  }
+}
+
+assert {
+  res.status: in [200, 400, 401]
+  res.body.success: isDefined
+}
+
+tests {
+  test("update user settings put response handled", function() {
+    expect([200, 400, 401]).to.include(res.getStatus());
+  });
+}

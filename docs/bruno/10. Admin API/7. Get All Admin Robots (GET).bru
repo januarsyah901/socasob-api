@@ -1,0 +1,25 @@
+meta {
+  name: 7. Get All Admin Robots (GET)
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/admin/robots
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+assert {
+  res.status: in [200, 401, 403]
+}
+
+tests {
+  test("get all admin robots handled", function() {
+    expect([200, 401, 403]).to.include(res.getStatus());
+  });
+}

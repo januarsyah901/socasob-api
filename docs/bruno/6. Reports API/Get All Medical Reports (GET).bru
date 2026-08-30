@@ -1,0 +1,28 @@
+meta {
+  name: Get All Medical Reports (GET)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/reports?robotId={{robotId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  robotId: {{robotId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+  res.body.data: isDefined
+}
+
+tests {
+  test("get all medical reports returned list", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

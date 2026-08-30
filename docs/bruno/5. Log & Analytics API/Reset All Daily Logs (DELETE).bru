@@ -1,0 +1,27 @@
+meta {
+  name: Reset All Daily Logs (DELETE)
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/api/log?robotId={{robotId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  robotId: {{robotId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("reset all logs handled", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

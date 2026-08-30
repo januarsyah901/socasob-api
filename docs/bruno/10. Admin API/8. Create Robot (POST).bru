@@ -1,0 +1,36 @@
+meta {
+  name: 8. Create Robot (POST)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/admin/robots
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "robotId": "robot-admin-99",
+    "name": "Robot SocaSob Admin",
+    "serialNumber": "SOCA-9999",
+    "ipAddress": "192.168.1.199",
+    "description": "Perangkat robot dari admin",
+    "status": "active"
+  }
+}
+
+assert {
+  res.status: in [201, 400, 401, 403, 409]
+}
+
+tests {
+  test("create robot admin handled", function() {
+    expect([201, 400, 401, 403, 409]).to.include(res.getStatus());
+  });
+}

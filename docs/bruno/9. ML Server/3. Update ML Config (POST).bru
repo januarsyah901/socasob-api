@@ -1,0 +1,32 @@
+meta {
+  name: 3. Update ML Config (POST)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{mlUrl}}/api/config
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "ear_threshold": 0.25,
+    "consec_frames": 3,
+    "video_source": "webcam",
+    "log_level": "INFO"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("ml config updated successfully", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

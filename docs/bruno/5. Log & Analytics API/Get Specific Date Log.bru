@@ -1,0 +1,26 @@
+meta {
+  name: Get Specific Date Log
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/log/{{testDate}}?robotId={{robotId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  robotId: {{robotId}}
+}
+
+assert {
+  res.status: in [200, 404]
+  res.body.success: isDefined
+}
+
+tests {
+  test("specific date log handled", function() {
+    expect([200, 404]).to.include(res.getStatus());
+  });
+}

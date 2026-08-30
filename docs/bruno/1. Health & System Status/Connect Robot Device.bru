@@ -1,0 +1,27 @@
+meta {
+  name: Connect Robot Device
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/robot/connect
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "robotIp": "{{robotIp}}"
+  }
+}
+
+assert {
+  res.status: in [200, 408, 502]
+}
+
+tests {
+  test("tcp connection test responds", function() {
+    expect([200, 408, 502]).to.include(res.getStatus());
+  });
+}

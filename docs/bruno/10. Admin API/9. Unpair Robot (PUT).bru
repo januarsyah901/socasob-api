@@ -1,0 +1,25 @@
+meta {
+  name: 9. Unpair Robot (PUT)
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{baseUrl}}/api/admin/robots/fadfa566/unpair
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+assert {
+  res.status: in [200, 401, 403, 404]
+}
+
+tests {
+  test("unpair robot admin handled", function() {
+    expect([200, 401, 403, 404]).to.include(res.getStatus());
+  });
+}

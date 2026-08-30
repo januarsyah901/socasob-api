@@ -1,0 +1,26 @@
+meta {
+  name: Get Conversation Detail (GET)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/companion/conversations/conv-12345
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+assert {
+  res.status: in [200, 404]
+  res.body.success: isDefined
+}
+
+tests {
+  test("get conversation detail handled", function() {
+    expect([200, 404]).to.include(res.getStatus());
+  });
+}

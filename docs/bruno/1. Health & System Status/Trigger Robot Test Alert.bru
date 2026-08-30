@@ -1,0 +1,30 @@
+meta {
+  name: Trigger Robot Test Alert
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/robot/alert
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "robotId": "{{robotId}}",
+    "status": "risk_myopia",
+    "message": "Peringatan uji coba: Jarak terlalu dekat terdeteksi!"
+  }
+}
+
+assert {
+  res.status: in [200, 503]
+  res.body.success: isDefined
+}
+
+tests {
+  test("test alert triggered to socket room", function() {
+    expect([200, 503]).to.include(res.getStatus());
+  });
+}

@@ -1,0 +1,32 @@
+meta {
+  name: 6. Unpair Robot (DELETE)
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/api/auth/unpair-robot
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "serialNumber": "SOCA-X7B9"
+  }
+}
+
+assert {
+  res.status: in [200, 404]
+  res.body.success: isDefined
+}
+
+tests {
+  test("unpair robot response handled", function() {
+    expect([200, 404]).to.include(res.getStatus());
+  });
+}

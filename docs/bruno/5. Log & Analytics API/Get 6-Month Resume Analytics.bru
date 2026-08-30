@@ -1,0 +1,26 @@
+meta {
+  name: Get 6-Month Resume Analytics
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/resume?robotId={{robotId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  robotId: {{robotId}}
+}
+
+assert {
+  res.status: in [200, 404]
+  res.body.success: isDefined
+}
+
+tests {
+  test("6-month resume analytics fetched", function() {
+    expect([200, 404]).to.include(res.getStatus());
+  });
+}

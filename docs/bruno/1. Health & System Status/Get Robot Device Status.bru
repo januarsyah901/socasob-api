@@ -1,0 +1,30 @@
+meta {
+  name: Get Robot Device Status
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/robot/status?robotId={{robotId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  robotId: {{robotId}}
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+  res.body.data.robotId: isDefined
+  res.body.data.status: isDefined
+}
+
+tests {
+  test("robot status is fetched", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+    expect(res.getBody().data).to.have.property("status");
+  });
+}

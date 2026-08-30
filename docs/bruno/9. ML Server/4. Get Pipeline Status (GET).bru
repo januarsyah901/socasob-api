@@ -1,0 +1,23 @@
+meta {
+  name: 4. Get Pipeline Status (GET)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{mlUrl}}/api/pipeline/status
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("pipeline status fetched", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

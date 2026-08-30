@@ -1,0 +1,25 @@
+meta {
+  name: 11. Delete Admin Robot (DELETE)
+  type: http
+  seq: 11
+}
+
+delete {
+  url: {{baseUrl}}/api/admin/robots/robot-admin-99
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+assert {
+  res.status: in [200, 401, 403, 404]
+}
+
+tests {
+  test("delete robot admin handled", function() {
+    expect([200, 401, 403, 404]).to.include(res.getStatus());
+  });
+}

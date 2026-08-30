@@ -1,0 +1,34 @@
+meta {
+  name: 2. Send Web Push (POST)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/push/send
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "robotId": "{{robotId}}",
+    "payload": {
+      "title": "👁️ SocaSob Reminder",
+      "body": "Waktunya istirahat mata! Tatap objek sejauh 20 kaki selama 20 detik.",
+      "icon": "/images/logo-socasob.png"
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+}
+
+tests {
+  test("send push broadcast handled", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+  });
+}

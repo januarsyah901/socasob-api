@@ -1,0 +1,25 @@
+meta {
+  name: 1. Get All Robots (GET)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/robots
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.success: eq true
+  res.body.data: isDefined
+}
+
+tests {
+  test("get all robots returned list", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().success).to.be.true;
+    expect(res.getBody().data).to.be.an('array');
+  });
+}

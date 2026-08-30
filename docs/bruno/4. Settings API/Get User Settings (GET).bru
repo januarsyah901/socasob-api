@@ -1,0 +1,26 @@
+meta {
+  name: Get User Settings (GET)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/settings
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+assert {
+  res.status: in [200, 401]
+  res.body.success: isDefined
+}
+
+tests {
+  test("returns user settings object or unauthorized", function() {
+    expect([200, 401]).to.include(res.getStatus());
+  });
+}
