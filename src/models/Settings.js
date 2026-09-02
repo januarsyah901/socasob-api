@@ -2,8 +2,8 @@ const mongoose = require('mongoose');
 
 const SettingsSchema = new mongoose.Schema({
   userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    // Mixed: mendukung ObjectId (dari JWT decoded.id) dan string
+    type: mongoose.Schema.Types.Mixed,
     required: true,
     unique: true,
     index: true

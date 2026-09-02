@@ -139,11 +139,18 @@ const handleEyeDetection = async (io, payload) => {
         }
 
         const risks = calculateRiskLevels(log.nearDuration, log.farDuration);
-                const totalMin = totalSec / 60;
+        const totalMin = totalSec / 60;
         const blinkRate = totalMin > 0 ? (log.blinkCount / totalMin) : 0;
+
+        // Hitung Eye Health Score (0-100): makin banyak tatap jauh dan blink normal, makin tinggi
+        const nearRatio = totalSec > 0 ? log.nearDuration / totalSec : 0;
+        const blinkScore = Math.min(blinkRate / 15, 1) * 30; // max 30 poin dari blink
+        const distanceScore = (1 - nearRatio) * 70;           // max 70 poin dari jarak
+        const eyeScore = Math.round(Math.max(0, Math.min(100, distanceScore + blinkScore)));
 
         io.to(`robot:${robotId}`).emit('eye-status', {
           status: log.eyeHealthStatus,
+          score: eyeScore,
           indicators: {
             eyeFatigue: risks.fatigueRisk === 'Tinggi' ? 85 : risks.fatigueRisk === 'Sedang' ? 45 : 10,
             myopiaRisk: risks.myopiaRisk === 'Tinggi' ? 85 : risks.myopiaRisk === 'Sedang' ? 45 : 10,
@@ -269,9 +276,18 @@ const handleSubscribeRobot = (socket, robotId) => {
  * @param {Server} io    - Instance Socket.io server
  */
 const registerPythonHandlers = (socket, io) => {
+  // Track robot IDs yang masuk melalui socket ini (untuk cleanup saat disconnect)
+  const socketRobotIds = new Set();
+
   // --- Event dari ML ---
-  socket.on('py-eye-detection', (payload) => handleEyeDetection(io, payload));
-  socket.on('py-minute-summary', (payload) => handleMinuteSummary(io, payload));
+  socket.on('py-eye-detection', (payload) => {
+    if (payload?.robot_id) socketRobotIds.add(payload.robot_id);
+    handleEyeDetection(io, payload);
+  });
+  socket.on('py-minute-summary', (payload) => {
+    if (payload?.robot_id) socketRobotIds.add(payload.robot_id);
+    handleMinuteSummary(io, payload);
+  });
   socket.on('py-hardware-status', (payload) => handleHardwareStatus(io, payload));
   socket.on('hardware', (payload) => handleHardwareStatus(io, payload));
 
@@ -280,9 +296,10 @@ const registerPythonHandlers = (socket, io) => {
 
   // --- Disconnect ---
   socket.on('disconnect', async () => {
-    console.log(`Socket disconnected: ${socket.id}`);
-    // Hentikan semua watchdog dan timer aktif
-    for (const [robotId] of robotStates) {
+    console.log(`Socket disconnected: ${socket.id} (robots: ${[...socketRobotIds].join(', ') || 'none'})`);
+
+    // Hanya stop robot yang terkait dengan socket ini, bukan semua robot
+    for (const robotId of socketRobotIds) {
       stopWatchdog(robotId);
       timerService.stopTimer(robotId);
       await logService.closeActiveSession(robotId);

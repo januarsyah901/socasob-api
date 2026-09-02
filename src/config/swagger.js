@@ -7,18 +7,25 @@ const options = {
     info: {
       title: 'SocaSob Backend API',
       version: '1.0.0',
-      description: 'API Dokumentasi untuk SocaSob - Sistem Monitoring Kesehatan Mata',
+      description: 'API Dokumentasi untuk SocaSob - Sistem Monitoring Kesehatan Mata Berbasis IoT',
       contact: {
         name: 'SocaSob Team',
       },
     },
     servers: [
       {
-        url: 'http://localhost:5000',
+        url: `http://localhost:${process.env.PORT || 3001}`,
         description: 'Local development server',
       },
     ],
     components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
       schemas: {
         DailyLog: {
           type: 'object',

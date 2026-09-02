@@ -3,19 +3,20 @@ const {
 } = require('../src/services/companionService');
 
 describe('Companion AI Service Tests', () => {
-  test('should generate thoughtful clinical response for 20-20-20 rule query', () => {
-    const reply = generateExpertResponse({
+  test('should generate thoughtful clinical response for 20-20-20 rule query', async () => {
+    const reply = await generateExpertResponse({
       query: 'Bagaimana cara melakukan aturan 20-20-20?',
       patientName: 'Bang Jan'
     });
 
     expect(reply).toBeDefined();
+    expect(typeof reply).toBe('string');
     expect(reply).toContain('20-20-20');
     expect(reply.toLowerCase()).toContain('otot siliaris');
   });
 
-  test('should incorporate telemetry data when asked about today monitoring', () => {
-    const reply = generateExpertResponse({
+  test('should incorporate telemetry data when asked about today monitoring', async () => {
+    const reply = await generateExpertResponse({
       query: 'Bagaimana kondisi mataku hari ini?',
       patientName: 'Bang Jan',
       telemetry: {
@@ -28,6 +29,7 @@ describe('Companion AI Service Tests', () => {
     });
 
     expect(reply).toBeDefined();
+    expect(typeof reply).toBe('string');
     expect(reply).toContain('Bang Jan');
     expect(reply).toContain('Tatap Dekat');
     expect(reply).toContain('85%');
