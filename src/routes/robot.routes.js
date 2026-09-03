@@ -297,10 +297,18 @@ router.post('/alert', async (req, res, next) => {
         timestamp: new Date().toISOString()
       });
 
+      const trigger = req.body.trigger || (status === 'dry_eye' || status === 'dry' ? 'dry' : status === 'fatigue_10m' || status === '10' ? '10' : status === 'fatigue_5m' || status === '5' ? '5' : 'normal');
+      io.to(`robot:${robotId}`).emit('hardware-status', {
+        robot_id: robotId,
+        robot_trigger: trigger,
+        lcd_command: status || 'normal',
+        timestamp: new Date().toISOString()
+      });
+
       return res.status(200).json({
         success: true,
         message: `Peringatan berhasil dikirim ke room robot:${robotId}`,
-        data: { robotId, status, message }
+        data: { robotId, status, trigger, message }
       });
     } catch (err) {
       return res.status(503).json({
