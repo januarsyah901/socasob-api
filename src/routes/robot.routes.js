@@ -297,7 +297,7 @@ router.post('/alert', async (req, res, next) => {
         timestamp: new Date().toISOString()
       });
 
-      const trigger = req.body.trigger || (status === 'dry_eye' || status === 'dry' ? 'dry' : status === 'fatigue_10m' || status === '10' ? '10' : status === 'fatigue_5m' || status === '5' ? '5' : 'normal');
+      const trigger = req.body.trigger || (status === 'dry_eye' || status === 'dry' ? 'dry' : status === 'fatigue_10m' || status === '10' ? '10' : status === 'fatigue_5m' || status === '5' ? '5' : status === 'break_20m' || status === '20' ? '20' : 'normal');
       io.to(`robot:${robotId}`).emit('hardware-status', {
         robot_id: robotId,
         robot_trigger: trigger,
