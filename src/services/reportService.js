@@ -49,7 +49,7 @@ const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7da
   } else if (period === '6months') {
     daysBack = 180;
     periodLabel = '6 Bulan Terakhir';
-    title = 'Audit Longitudinal Ergonomi & Evaluasi Miopia';
+    title = 'Audit Longitudinal & Evaluasi Miopia';
   }
 
   const startDateObj = new Date(now);
@@ -159,7 +159,7 @@ const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7da
       }`
     );
 
-    examinerNotes = `Pasien menunjukkan risiko miopia ${risks.myopiaRisk}. Disarankan mempertahankan kebiasaan ergonomis dan berkonsultasi bila timbul gejala pusing atau buram.`;
+    examinerNotes = `Pasien menunjukkan risiko miopia ${risks.myopiaRisk}. Disarankan mempertahankan kebiasaan menjaga jarak layar dan berkonsultasi bila timbul gejala pusing atau buram.`;
   }
 
   // Unique report ID
