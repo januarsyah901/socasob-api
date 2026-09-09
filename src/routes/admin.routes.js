@@ -401,4 +401,65 @@ router.post('/ml-config', async (req, res, next) => {
   }
 });
 
+// ============================================================
+// ADMIN TESTING SWITCH (PKM HARDWARE MULTI-USER MAPPER)
+// ============================================================
+
+const {
+  getSwitchStatus,
+  setSwitchTarget,
+  resetTargetTodayLog
+} = require('../services/testingSwitchService');
+
+/**
+ * GET /api/admin/testing-switch
+ * Ambil status aktif saklar uji coba dan daftar user/robot yang tersedia
+ */
+router.get('/testing-switch', async (req, res, next) => {
+  try {
+    const status = await getSwitchStatus();
+    res.status(200).json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * PUT /api/admin/testing-switch
+ * Ubah saklar pengujian (pilih target robot/user baru atau on/off)
+ */
+router.put('/testing-switch', async (req, res, next) => {
+  try {
+    const { enabled, physicalRobotId, targetRobotId } = req.body;
+    const updated = await setSwitchTarget({ enabled, physicalRobotId, targetRobotId });
+    res.status(200).json({
+      success: true,
+      message: `Saklar berhasil diarahkan ke: ${updated.targetRobotId} (${updated.enabled ? 'Aktif' : 'Nonaktif'})`,
+      data: updated
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/admin/testing-switch/reset-log
+ * Reset log hari ini untuk target robot aktif agar sesi pengujian mulai dari 0
+ */
+router.post('/testing-switch/reset-log', async (req, res, next) => {
+  try {
+    const { robotId } = req.body;
+    const ok = await resetTargetTodayLog(robotId);
+    res.status(200).json({
+      success: ok,
+      message: 'Log harian sesi robot ini berhasil di-reset ke 0 detik.'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

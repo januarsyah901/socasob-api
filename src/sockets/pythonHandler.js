@@ -3,6 +3,7 @@ const timerService = require('../services/timerService');
 const { isRobotValidAndActive, touchRobotLastSeen } = require('../services/robotService');
 const { calculateRiskLevels } = require('../services/eyeHealthEngine');
 const { sendPushToRobot } = require('../services/pushService');
+const { resolveRobotId } = require('../services/testingSwitchService');
 
 // ============================================================
 // State per robot_id (Map menggantikan variabel global tunggal)
@@ -281,15 +282,31 @@ const registerPythonHandlers = (socket, io) => {
 
   // --- Event dari ML ---
   socket.on('py-eye-detection', (payload) => {
-    if (payload?.robot_id) socketRobotIds.add(payload.robot_id);
+    if (payload?.robot_id) {
+      payload.robot_id = resolveRobotId(payload.robot_id);
+      socketRobotIds.add(payload.robot_id);
+    }
     handleEyeDetection(io, payload);
   });
   socket.on('py-minute-summary', (payload) => {
-    if (payload?.robot_id) socketRobotIds.add(payload.robot_id);
+    if (payload?.robot_id) {
+      payload.robot_id = resolveRobotId(payload.robot_id);
+      socketRobotIds.add(payload.robot_id);
+    }
     handleMinuteSummary(io, payload);
   });
-  socket.on('py-hardware-status', (payload) => handleHardwareStatus(io, payload));
-  socket.on('hardware', (payload) => handleHardwareStatus(io, payload));
+  socket.on('py-hardware-status', (payload) => {
+    if (payload?.robot_id) {
+      payload.robot_id = resolveRobotId(payload.robot_id);
+    }
+    handleHardwareStatus(io, payload);
+  });
+  socket.on('hardware', (payload) => {
+    if (payload?.robot_id) {
+      payload.robot_id = resolveRobotId(payload.robot_id);
+    }
+    handleHardwareStatus(io, payload);
+  });
 
   // --- Event dari FE ---
   socket.on('subscribe-robot', ({ robot_id }) => handleSubscribeRobot(socket, robot_id));

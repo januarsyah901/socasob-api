@@ -6,6 +6,8 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/socasob');
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     await ensureDefaultRobot();
+    const { initSwitchConfig } = require('../services/testingSwitchService');
+    await initSwitchConfig();
   } catch (error) {
     console.error(`MongoDB Connection Error: ${error.message}`);
     process.exit(1);
