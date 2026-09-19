@@ -58,7 +58,19 @@ const ReportSchema = new mongoose.Schema({
     required: true
   },
 
-  // -- Metrik --
+  // -- Metrik Akumulasi Hari Terdeteksi --
+  fatigueRiskDays: { type: Number, default: 0 },
+  dryEyeRiskDays: { type: Number, default: 0 },
+  myopiaRiskDays: { type: Number, default: 0 },
+  totalDaysMonitored: { type: Number, default: 0 },
+
+  // -- Metrik Rata-rata Harian & Maksimal --
+  avgScreenTimeMinutes: { type: Number, default: 0 },
+  avgLongestContinuousGazeMinutes: { type: Number, default: 0 },
+  avgDominantDistanceCm: { type: Number, default: 0 },
+  avgBlinkRatePerMinute: { type: Number, default: 0 },
+  avgIncompleteBlinkRatio: { type: Number, default: 0 },
+
   screenTimeMinutes: { type: Number, default: 0 },
   longestContinuousGazeMinutes: { type: Number, default: 0 },
   blinkRatePerMinute: { type: Number, default: 0 },

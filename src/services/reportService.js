@@ -50,21 +50,27 @@ const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7da
   const dateRange =
     daysBack === 0
       ? formatDateIndo(now)
-      : `${formatDateIndo(startDateObj)} – ${formatDateIndo(now)}`;
+      : `${formatDateIndo(startDateObj)} s.d. ${formatDateIndo(now)}`;
 
   const logs = await DailyLog.find({
     robotId,
     date: { $gte: startDateStr, $lte: todayStr }
   }).sort({ date: 1 });
 
-  // Agregasi metrik baru
+  // Agregasi metrik baru & akumulasi hari risiko
   let maxScreenTime = 0;
   let maxContGaze = 0;
+  let totalScreenTimeAll = 0;
+  let totalContGazeAll = 0;
   let totalBlinkRate = 0;
   let totalIncompleteRatio = 0;
   let totalDominantDistance = 0;
   let anyBelow50 = false;
   let anyBelow20 = false;
+  
+  let fatigueRiskDays = 0;
+  let dryEyeRiskDays = 0;
+  let myopiaRiskDays = 0;
   
   // Agregasi metrik legacy
   let totalNearSec = 0;
@@ -82,20 +88,45 @@ const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7da
       totalBlinks += log.blinkCount || 0;
       totalCompliance += log.restCompliance || 100;
 
+      // Evaluasi harian untuk hitung total hari terdeteksi
+      const dailyScreenMins = log.screenTimeMinutes || Math.round(((log.nearDuration || 0) + (log.farDuration || 0)) / 60);
+      const dailyGaze = log.longestContinuousGazeMinutes || 0;
+      const dailyBlink = log.blinkRatePerMinute || (dailyScreenMins > 0 ? Math.round((log.blinkCount || 0) / dailyScreenMins) : 16);
+      const dailyIncomplete = log.incompleteBlinkRatio || 0;
+      const dailyBelow50 = log.distanceBelow50CmForAtLeast10Seconds !== undefined
+        ? log.distanceBelow50CmForAtLeast10Seconds
+        : (log.dominantDistanceCm ? log.dominantDistanceCm < 50 : false);
+      const dailyBelow20 = log.distanceBelow20CmDetected || false;
+
+      const dailyEval = evaluateDailyRisks({
+        screenTimeMinutes: dailyScreenMins,
+        longestContinuousGazeMinutes: dailyGaze,
+        blinkRatePerMinute: dailyBlink,
+        incompleteBlinkRatio: dailyIncomplete,
+        distanceBelow50CmForAtLeast10Seconds: dailyBelow50,
+        distanceBelow20CmDetected: dailyBelow20
+      });
+
+      if (dailyEval.eyeFatigueRisk.status === 'YA') fatigueRiskDays++;
+      if (dailyEval.dryEyeRisk.status === 'YA') dryEyeRiskDays++;
+      if (dailyEval.myopiaExposureRisk.status === 'YA') myopiaRiskDays++;
+
       // New metrics
-      if (log.screenTimeMinutes || log.blinkRatePerMinute || log.incompleteBlinkRatio || log.dominantDistanceCm) {
-        validDaysCount++;
-        maxScreenTime = Math.max(maxScreenTime, log.screenTimeMinutes || 0);
-        maxContGaze = Math.max(maxContGaze, log.longestContinuousGazeMinutes || 0);
-        totalBlinkRate += (log.blinkRatePerMinute || 0);
-        totalIncompleteRatio += (log.incompleteBlinkRatio || 0);
-        totalDominantDistance += (log.dominantDistanceCm || 0);
-        if (log.distanceBelow50CmForAtLeast10Seconds) anyBelow50 = true;
-        if (log.distanceBelow20CmDetected) anyBelow20 = true;
-      }
+      validDaysCount++;
+      totalScreenTimeAll += dailyScreenMins;
+      totalContGazeAll += dailyGaze;
+      maxScreenTime = Math.max(maxScreenTime, dailyScreenMins);
+      maxContGaze = Math.max(maxContGaze, dailyGaze);
+      totalBlinkRate += dailyBlink;
+      totalIncompleteRatio += dailyIncomplete;
+      totalDominantDistance += (log.dominantDistanceCm || 45);
+      if (dailyBelow50) anyBelow50 = true;
+      if (dailyBelow20) anyBelow20 = true;
     });
   }
 
+  const avgScreenTimeMinutes = validDaysCount > 0 ? Math.round(totalScreenTimeAll / validDaysCount) : 0;
+  const avgLongestContinuousGazeMinutes = validDaysCount > 0 ? Math.round(totalContGazeAll / validDaysCount) : 0;
   const avgBlinkRatePerMin = validDaysCount > 0 ? Math.round(totalBlinkRate / validDaysCount) : 0;
   const avgIncompleteRatio = validDaysCount > 0 ? Math.round(totalIncompleteRatio / validDaysCount) : 0;
   const avgDominantDist = validDaysCount > 0 ? Math.round(totalDominantDistance / validDaysCount) : 0;
@@ -171,7 +202,18 @@ const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7da
     periodLabel,
     dateRange,
     
-    // New fields
+    // Akumulasi Hari Risiko & Rata-rata
+    fatigueRiskDays,
+    dryEyeRiskDays,
+    myopiaRiskDays,
+    totalDaysMonitored: validDaysCount,
+    avgScreenTimeMinutes,
+    avgLongestContinuousGazeMinutes,
+    avgDominantDistanceCm: avgDominantDist,
+    avgBlinkRatePerMinute: avgBlinkRatePerMin,
+    avgIncompleteBlinkRatio: avgIncompleteRatio,
+
+    // Evaluasi Risiko Periode
     myopiaExposureRisk: evaluatedRisks.myopiaExposureRisk,
     eyeFatigueRisk: evaluatedRisks.eyeFatigueRisk,
     dryEyeRisk: evaluatedRisks.dryEyeRisk,
