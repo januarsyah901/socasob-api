@@ -2,6 +2,24 @@ const express = require('express');
 const router = express.Router();
 const logService = require('../services/logService');
 const DailyLog = require('../models/DailyLog');
+const { evaluateDailyRisks } = require('../services/eyeHealthEngine');
+
+const enrichLogWithRisks = (logDoc) => {
+  if (!logDoc) return null;
+  const log = logDoc.toObject ? logDoc.toObject() : { ...logDoc };
+  const totalScreenMinutes = log.screenTimeMinutes || Math.round(((log.nearDuration || 0) + (log.farDuration || 0)) / 60);
+  log.risks = evaluateDailyRisks({
+    screenTimeMinutes: totalScreenMinutes,
+    longestContinuousGazeMinutes: log.longestContinuousGazeMinutes || 0,
+    blinkRatePerMinute: log.blinkRatePerMinute || (totalScreenMinutes > 0 ? Math.round((log.blinkCount || 0) / totalScreenMinutes) : 0),
+    incompleteBlinkRatio: log.incompleteBlinkRatio || 0,
+    distanceBelow50CmForAtLeast10Seconds: log.distanceBelow50CmForAtLeast10Seconds !== undefined
+      ? log.distanceBelow50CmForAtLeast10Seconds
+      : (log.dominantDistanceCm ? log.dominantDistanceCm < 50 : false),
+    distanceBelow20CmDetected: log.distanceBelow20CmDetected || false
+  });
+  return log;
+};
 
 /**
  * @swagger
@@ -52,7 +70,7 @@ router.get('/today', async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: log
+      data: enrichLogWithRisks(log)
     });
   } catch (error) {
     next(error);
@@ -106,7 +124,56 @@ router.get('/weekly', async (req, res, next) => {
     const logs = await logService.getWeeklyLogs(robotId, startDate, endDate);
     res.status(200).json({
       success: true,
-      data: logs
+      data: logs.map(enrichLogWithRisks)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * @swagger
+ * /api/log/history:
+ *   get:
+ *     summary: Ambil riwayat log harian (default 30 hari terakhir) untuk robot tertentu
+ *     tags: [Log]
+ *     parameters:
+ *       - in: query
+ *         name: robotId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID unik robot
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 30
+ *         description: Jumlah maksimum log yang diambil
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil riwayat log
+ *       400:
+ *         description: robotId wajib diisi
+ */
+router.get('/history', async (req, res, next) => {
+  try {
+    const { robotId, limit = 30 } = req.query;
+    if (!robotId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query parameter robotId wajib diisi. Contoh: /api/log/history?robotId=fadfa566'
+      });
+    }
+
+    const logs = await DailyLog.find({ robotId })
+      .sort({ date: -1 })
+      .limit(Number(limit) || 30);
+
+    res.status(200).json({
+      success: true,
+      count: logs.length,
+      data: logs.map(enrichLogWithRisks)
     });
   } catch (error) {
     next(error);
@@ -172,7 +239,7 @@ router.get('/:date', async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: log
+      data: enrichLogWithRisks(log)
     });
   } catch (error) {
     next(error);

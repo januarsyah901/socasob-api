@@ -29,7 +29,7 @@ const {
  *     description: |
  *       Mengagregasi data monitoring dari 6 bulan terakhir dan menghitung:
  *       - Tingkat risiko miopia dan kelelahan mata
- *       - Skor kesehatan mata akumulatif (0–100)
+ *       - Skor kesehatan mata akumulatif (0 s.d. 100)
  *       - Persentase distribusi jarak dekat vs jauh
  *       - Kepatuhan aturan istirahat 20-20-20
  *       - Total jam monitoring
@@ -67,16 +67,34 @@ router.get('/', async (req, res, next) => {
       });
     }
 
+    logs.sort((a, b) => a.date.localeCompare(b.date));
+
     let totalNear = 0;
     let totalFar = 0;
     let totalBlinks = 0;
     let totalCompliance = 0;
 
-    logs.forEach(log => {
-      totalNear += log.nearDuration || 0;
-      totalFar += log.farDuration || 0;
+    const trend = logs.map(log => {
+      const near = log.nearDuration || 0;
+      const far = log.farDuration || 0;
+      const sec = near + far;
+      const screenTimeMin = log.screenTimeMinutes || Math.round(sec / 60);
+
+      totalNear += near;
+      totalFar += far;
       totalBlinks += log.blinkCount || 0;
-      totalCompliance += log.restCompliance || 100;
+      totalCompliance += log.restCompliance !== undefined ? log.restCompliance : 100;
+
+      return {
+        date: log.date,
+        screenTimeMinutes: screenTimeMin,
+        screenTimeHours: Math.round((screenTimeMin / 60) * 10) / 10,
+        dominantDistanceCm: log.dominantDistanceCm || (near > far ? 28 : 42),
+        blinkRatePerMinute: log.blinkRatePerMinute || 16,
+        incompleteBlinkRatio: log.incompleteBlinkRatio || 0,
+        longestContinuousGazeMinutes: log.longestContinuousGazeMinutes || 0,
+        restCompliance: log.restCompliance !== undefined ? log.restCompliance : 100
+      };
     });
 
     const totalSec = totalNear + totalFar;
@@ -103,7 +121,8 @@ router.get('/', async (req, res, next) => {
         nearPercent,
         farPercent,
         totalHours: Math.round(totalHours * 10) / 10,
-        totalDaysMonitored: logs.length
+        totalDaysMonitored: logs.length,
+        trend
       }
     });
   } catch (error) {

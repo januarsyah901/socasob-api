@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Conversation = require('../models/Conversation');
 const DailyLog = require('../models/DailyLog');
 
@@ -193,14 +194,23 @@ const sendMessage = async ({ conversationId, userId = 'default_user', message, r
  * Ambil daftar semua percakapan
  */
 const getConversations = async (userId = 'default_user') => {
-  return await Conversation.find({ userId }).sort({ updatedAt: -1 }).lean();
+  const query = mongoose.isValidObjectId(userId)
+    ? { $or: [{ userId }, { userId: new mongoose.Types.ObjectId(userId) }, { userId: String(userId) }] }
+    : { userId };
+  return await Conversation.find(query).sort({ updatedAt: -1 }).lean();
 };
 
 /**
  * Ambil percakapan berdasarkan ID
  */
-const getConversationById = async (conversationId) => {
-  return await Conversation.findOne({ conversationId }).lean();
+const getConversationById = async (conversationId, userId = 'default_user') => {
+  const query = {
+    conversationId,
+    ...(mongoose.isValidObjectId(userId)
+      ? { $or: [{ userId }, { userId: new mongoose.Types.ObjectId(userId) }, { userId: String(userId) }] }
+      : { userId })
+  };
+  return await Conversation.findOne(query);
 };
 
 /**
