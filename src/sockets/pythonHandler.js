@@ -197,7 +197,7 @@ const handleMinuteSummary = async (io, summary) => {
       { robotId, date: today },
       {
         $inc: {
-          nearDuration: summary.near_duration_sec || 0,
+          nearDuration: summary.near_duration_sec || 0, screenTimeMinutes: Math.round(((summary.near_duration_sec || 0) + (summary.far_duration_sec || 0)) / 60), blinkRatePerMinute: summary.avg_blink_rate || 0, incompleteBlinkRatio: (summary.avg_perclos || 0) * 100, dominantDistanceCm: summary.dominant_distance === "Dekat" ? 30 : 50, distanceBelow50CmForAtLeast10Seconds: summary.near_duration_sec > 10, 
           farDuration: summary.far_duration_sec || 0,
           blinkCount: summary.blink_count || 0,
         }
