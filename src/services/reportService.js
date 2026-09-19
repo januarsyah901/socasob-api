@@ -2,36 +2,26 @@ const mongoose = require('mongoose');
 const Report = require('../models/Report');
 const DailyLog = require('../models/DailyLog');
 const {
+  evaluateDailyRisks,
   calculateRiskLevels
 } = require('./eyeHealthEngine');
 
-/**
- * Format tanggal ke teks bahasa Indonesia (contoh: 23 Agustus 2026)
- */
 const formatDateIndo = (dateObj) => {
   try {
     return dateObj.toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
+      day: 'numeric', month: 'long', year: 'numeric'
     });
   } catch (_) {
     return dateObj.toISOString().split('T')[0];
   }
 };
 
-/**
- * Format tanggal ke format YYYY-MM-DD
- */
 const formatDateStr = (dateObj) => {
   const offset = dateObj.getTimezoneOffset();
   const local = new Date(dateObj.getTime() - offset * 60000);
   return local.toISOString().split('T')[0];
 };
 
-/**
- * Generate dan simpan Laporan Medis baru berdasarkan data DailyLog riil
- */
 const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7days' }) => {
   const now = new Date();
   let daysBack = 7;
@@ -49,12 +39,11 @@ const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7da
   } else if (period === '6months') {
     daysBack = 180;
     periodLabel = '6 Bulan Terakhir';
-    title = 'Audit Longitudinal & Evaluasi Miopia';
+    title = 'Audit Longitudinal & Evaluasi Risiko Pemantauan'; // Updated title
   }
 
   const startDateObj = new Date(now);
   startDateObj.setDate(now.getDate() - daysBack);
-
   const startDateStr = formatDateStr(startDateObj);
   const todayStr = formatDateStr(now);
 
@@ -63,106 +52,114 @@ const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7da
       ? formatDateIndo(now)
       : `${formatDateIndo(startDateObj)} – ${formatDateIndo(now)}`;
 
-  // Ambil logs dari database MongoDB
   const logs = await DailyLog.find({
     robotId,
     date: { $gte: startDateStr, $lte: todayStr }
   }).sort({ date: 1 });
 
+  // Agregasi metrik baru
+  let maxScreenTime = 0;
+  let maxContGaze = 0;
+  let totalBlinkRate = 0;
+  let totalIncompleteRatio = 0;
+  let totalDominantDistance = 0;
+  let anyBelow50 = false;
+  let anyBelow20 = false;
+  
+  // Agregasi metrik legacy
   let totalNearSec = 0;
   let totalFarSec = 0;
   let totalBlinks = 0;
   let totalCompliance = 0;
+  
+  let validDaysCount = 0;
 
   if (logs && logs.length > 0) {
     logs.forEach((log) => {
+      // Legacy
       totalNearSec += log.nearDuration || 0;
       totalFarSec += log.farDuration || 0;
       totalBlinks += log.blinkCount || 0;
       totalCompliance += log.restCompliance || 100;
+
+      // New metrics
+      if (log.screenTimeMinutes || log.blinkRatePerMinute || log.incompleteBlinkRatio || log.dominantDistanceCm) {
+        validDaysCount++;
+        maxScreenTime = Math.max(maxScreenTime, log.screenTimeMinutes || 0);
+        maxContGaze = Math.max(maxContGaze, log.longestContinuousGazeMinutes || 0);
+        totalBlinkRate += (log.blinkRatePerMinute || 0);
+        totalIncompleteRatio += (log.incompleteBlinkRatio || 0);
+        totalDominantDistance += (log.dominantDistanceCm || 0);
+        if (log.distanceBelow50CmForAtLeast10Seconds) anyBelow50 = true;
+        if (log.distanceBelow20CmDetected) anyBelow20 = true;
+      }
     });
   }
+
+  const avgBlinkRatePerMin = validDaysCount > 0 ? Math.round(totalBlinkRate / validDaysCount) : 0;
+  const avgIncompleteRatio = validDaysCount > 0 ? Math.round(totalIncompleteRatio / validDaysCount) : 0;
+  const avgDominantDist = validDaysCount > 0 ? Math.round(totalDominantDistance / validDaysCount) : 0;
+
+  // Run new evaluation based on aggregated worst-case/average (or just max/any for safety)
+  // We use maxScreenTime and maxContGaze because risk is based on exceeding daily limits at least once in the period
+  const evaluatedRisks = evaluateDailyRisks({
+    screenTimeMinutes: maxScreenTime,
+    longestContinuousGazeMinutes: maxContGaze,
+    blinkRatePerMinute: avgBlinkRatePerMin,
+    incompleteBlinkRatio: avgIncompleteRatio,
+    distanceBelow50CmForAtLeast10Seconds: anyBelow50,
+    distanceBelow20CmDetected: anyBelow20
+  });
 
   const totalSec = totalNearSec + totalFarSec;
   const totalHours = Math.round((totalSec / 3600) * 10) / 10;
   const nearDurationMin = Math.round(totalNearSec / 60);
   const farDurationMin = Math.round(totalFarSec / 60);
-  const totalMin = nearDurationMin + farDurationMin;
-
-  const restCompliance =
-    logs.length > 0 ? Math.round(totalCompliance / logs.length) : 0;
-
-  const blinkRatePerMin =
-    totalMin > 0
-      ? Math.round((totalBlinks / totalMin) * 10) / 10
-      : 0;
-
-  const risks =
-    totalSec > 0
+  
+  const restCompliance = logs.length > 0 ? Math.round(totalCompliance / logs.length) : 0;
+  
+  // Legacy risks mapping
+  const legacyRisks = totalSec > 0
       ? calculateRiskLevels(totalNearSec, totalFarSec)
       : { myopiaRisk: 'Rendah', fatigueRisk: 'Rendah' };
+  
+  const cvsRisk = legacyRisks.fatigueRisk === 'Tinggi' ? 'Tinggi'
+      : legacyRisks.fatigueRisk === 'Sedang' ? 'Sedang' : 'Rendah';
 
-  const cvsRisk =
-    risks.fatigueRisk === 'Tinggi'
-      ? 'Tinggi'
-      : risks.fatigueRisk === 'Sedang'
-      ? 'Sedang'
-      : 'Rendah';
-
-  const avgDistanceCm =
-    totalSec > 0
-      ? Math.round(((totalNearSec * 25) + (totalFarSec * 40)) / totalSec)
-      : 0;
-
-  // Generate Dynamic Clinical Notes based on actual telemetries
+  // Dynamic Notes (updated to remove diagnosis and use safe terminology)
   const clinicalNotes = [];
   let examinerNotes = '-';
 
-  if (totalSec === 0) {
+  if (logs.length === 0 && validDaysCount === 0) {
     clinicalNotes.push('Belum ada rekaman data telemetri yang terdeteksi untuk periode ini.');
   } else {
-    if (avgDistanceCm >= 30) {
-      clinicalNotes.push(
-        `Jarak rata-rata mata terhadap layar monitor berada pada batas aman yang dianjurkan (${avgDistanceCm} cm ≥ 30 cm).`
-      );
+    // New logic based on evaluating true risks
+    if (evaluatedRisks.eyeFatigueRisk.status === 'YA') {
+      clinicalNotes.push('Terdeteksi risiko mata lelah. Perhatikan durasi menatap layar dan pastikan menjaga jarak ergonomis.');
     } else {
-      clinicalNotes.push(
-        `Jarak rata-rata mata terhadap monitor tercatat terlalu dekat (${avgDistanceCm} cm < 30 cm). Membutuhkan penyesuaian posisi duduk dan tata letak layar kerja.`
-      );
+      clinicalNotes.push('Risiko mata lelah tergolong rendah pada periode ini.');
+    }
+    
+    if (evaluatedRisks.dryEyeRisk.status === 'YA') {
+      clinicalNotes.push('Terdeteksi indikasi risiko mata kering. Perbanyak kedipan sempurna dan batasi waktu layar berlebih.');
+    }
+    
+    if (evaluatedRisks.myopiaExposureRisk.status === 'YA') {
+      clinicalNotes.push('Paparan terhadap risiko miopia tinggi (jarak terlalu dekat / durasi terlalu lama). Harap biasakan aturan 20-20-20.');
     }
 
-    if (blinkRatePerMin >= 12) {
-      clinicalNotes.push(
-        `Frekuensi berkedip tercatat ${blinkRatePerMin} kedipan/menit, sangat baik dalam menjaga stabilitas hidrasi tear film kornea.`
-      );
+    if (daysBack >= 30) {
+      clinicalNotes.push(`Tingkat kepatuhan istirahat tercatat ${restCompliance}%.`);
+      if (daysBack === 180) { // 6 Bulan
+        examinerNotes = 'Berdasarkan pola paparan kumulatif 6 bulan terakhir, pertimbangkan melakukan skrining mata atau pemeriksaan refraksi.';
+      } else {
+        examinerNotes = 'Terus pantau pola paparan risiko dan patuhi pengingat istirahat.';
+      }
     } else {
-      clinicalNotes.push(
-        `Frekuensi berkedip rendah (${blinkRatePerMin} kedipan/menit < standar 12-15/mnt). Berisiko menimbulkan Computer Vision Syndrome (CVS) dan mata kering.`
-      );
+      examinerNotes = 'Pemantauan jangka pendek menunjukkan aktivitas normal-sedang.';
     }
-
-    if (nearDurationMin > 60 && risks.myopiaRisk !== 'Rendah') {
-      clinicalNotes.push(
-        `Ditemukan akumulasi tatap dekat berlebih (${nearDurationMin} menit). Disarankan membatasi sesi dekat beruntun maksimal 45 menit.`
-      );
-    } else {
-      clinicalNotes.push(
-        `Pola pergantian tatap jauh terpelihara dengan baik (${farDurationMin} menit aman), efektif merelaksasikan otot akomodasi siliaris.`
-      );
-    }
-
-    clinicalNotes.push(
-      `Tingkat kepatuhan istirahat 20-20-20 tercatat ${restCompliance}%. ${
-        restCompliance >= 70
-          ? 'Sangat efektif dalam menekan risiko progresi miopia dan kelelahan visual.'
-          : 'Perlu peningkatan disiplin jeda micro-break 20 detik secara berkala.'
-      }`
-    );
-
-    examinerNotes = `Pasien menunjukkan risiko miopia ${risks.myopiaRisk}. Disarankan mempertahankan kebiasaan menjaga jarak layar dan berkonsultasi bila timbul gejala pusing atau buram.`;
   }
 
-  // Unique report ID
   const reportId = `SOCA-${Math.floor(100000 + Math.random() * 900000)}`;
 
   const newReport = new Report({
@@ -173,34 +170,43 @@ const generateReport = async ({ robotId, patientName = 'Pengguna', period = '7da
     period,
     periodLabel,
     dateRange,
-    myopiaRisk: risks.myopiaRisk,
-    fatigueRisk: risks.fatigueRisk,
+    
+    // New fields
+    myopiaExposureRisk: evaluatedRisks.myopiaExposureRisk,
+    eyeFatigueRisk: evaluatedRisks.eyeFatigueRisk,
+    dryEyeRisk: evaluatedRisks.dryEyeRisk,
+    screenTimeMinutes: maxScreenTime,
+    longestContinuousGazeMinutes: maxContGaze,
+    blinkRatePerMinute: avgBlinkRatePerMin,
+    incompleteBlinkRatio: avgIncompleteRatio,
+    dominantDistanceCm: avgDominantDist,
+    distanceBelow50CmForAtLeast10Seconds: anyBelow50,
+    distanceBelow20CmDetected: anyBelow20,
+
+    // Legacy fields
+    myopiaRisk: legacyRisks.myopiaRisk,
+    fatigueRisk: legacyRisks.fatigueRisk,
     cvsRisk,
     restCompliance,
     nearDurationMin,
     farDurationMin,
     totalHours,
-    avgDistanceCm,
-    blinkRatePerMin,
+    avgDistanceCm: avgDominantDist || (totalSec > 0 ? Math.round(((totalNearSec * 25) + (totalFarSec * 40)) / totalSec) : 0),
+    blinkRatePerMin: avgBlinkRatePerMin, // fallback map
     clinicalNotes,
-    examinerNotes
+    examinerNotes,
+    disclaimer: 'Semua output bersifat pemantauan risiko kebiasaan visual dan bukan diagnosis medis.'
   });
 
   await newReport.save();
   return newReport;
 };
 
-/**
- * Ambil semua laporan medis
- */
 const getReports = async (robotId) => {
   const query = robotId ? { robotId } : {};
   return await Report.find(query).sort({ createdAt: -1 }).lean();
 };
 
-/**
- * Ambil laporan medis berdasarkan ID
- */
 const getReportById = async (reportId) => {
   return await Report.findOne({
     $or: [
@@ -210,9 +216,6 @@ const getReportById = async (reportId) => {
   }).lean();
 };
 
-/**
- * Hapus laporan medis berdasarkan ID
- */
 const deleteReport = async (reportId) => {
   return await Report.findOneAndDelete({
     $or: [

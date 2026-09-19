@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
 
+const EvaluationSchema = new mongoose.Schema({
+  status: { type: String, enum: ['YA', 'TIDAK'], required: true },
+  reasons: { type: [String], default: [] }
+}, { _id: false });
+
 const ReportSchema = new mongoose.Schema({
   reportId: {
     type: String,
@@ -18,7 +23,7 @@ const ReportSchema = new mongoose.Schema({
     type: String,
     required: [true, 'patientName wajib diisi'],
     trim: true,
-    default: 'Bang Jan'
+    default: 'Pengguna'
   },
   title: {
     type: String,
@@ -38,54 +43,45 @@ const ReportSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  myopiaRisk: {
-    type: String,
-    enum: ['Rendah', 'Sedang', 'Tinggi'],
+  
+  // -- Evaluasi Baru --
+  myopiaExposureRisk: {
+    type: EvaluationSchema,
     required: true
   },
-  fatigueRisk: {
-    type: String,
-    enum: ['Rendah', 'Sedang', 'Tinggi'],
+  eyeFatigueRisk: {
+    type: EvaluationSchema,
     required: true
   },
-  cvsRisk: {
-    type: String,
-    enum: ['Rendah', 'Sedang', 'Tinggi'],
-    default: 'Rendah'
-  },
-  restCompliance: {
-    type: Number,
-    min: 0,
-    max: 100,
+  dryEyeRisk: {
+    type: EvaluationSchema,
     required: true
   },
-  nearDurationMin: {
-    type: Number,
-    default: 0
-  },
-  farDurationMin: {
-    type: Number,
-    default: 0
-  },
-  totalHours: {
-    type: Number,
-    default: 0
-  },
-  avgDistanceCm: {
-    type: Number,
-    default: 35
-  },
-  blinkRatePerMin: {
-    type: Number,
-    default: 15
-  },
-  clinicalNotes: {
-    type: [String],
-    default: []
-  },
-  examinerNotes: {
+
+  // -- Metrik --
+  screenTimeMinutes: { type: Number, default: 0 },
+  longestContinuousGazeMinutes: { type: Number, default: 0 },
+  blinkRatePerMinute: { type: Number, default: 0 },
+  incompleteBlinkRatio: { type: Number, default: 0 },
+  dominantDistanceCm: { type: Number, default: 0 },
+  distanceBelow50CmForAtLeast10Seconds: { type: Boolean, default: false },
+  distanceBelow20CmDetected: { type: Boolean, default: false },
+  
+  // -- Legacy/Fallback properties agar frontend yg blm update gak error keras --
+  myopiaRisk: { type: String, default: 'Rendah' },
+  fatigueRisk: { type: String, default: 'Rendah' },
+  cvsRisk: { type: String, default: 'Rendah' },
+  restCompliance: { type: Number, default: 100 },
+  nearDurationMin: { type: Number, default: 0 },
+  farDurationMin: { type: Number, default: 0 },
+  totalHours: { type: Number, default: 0 },
+  avgDistanceCm: { type: Number, default: 0 },
+  blinkRatePerMin: { type: Number, default: 0 },
+  clinicalNotes: { type: [String], default: [] },
+  examinerNotes: { type: String, default: '' },
+  disclaimer: {
     type: String,
-    default: ''
+    default: 'Semua output bersifat pemantauan risiko kebiasaan visual dan bukan diagnosis medis.'
   }
 }, {
   timestamps: true

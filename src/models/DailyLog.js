@@ -1,20 +1,5 @@
 const mongoose = require('mongoose');
 
-const SessionSchema = new mongoose.Schema({
-  startTime: {
-    type: Date,
-    required: true
-  },
-  endTime: {
-    type: Date
-  },
-  peakDistance: {
-    type: String,
-    enum: ['Dekat', 'Jauh'],
-    default: 'Jauh'
-  }
-});
-
 const DailyLogSchema = new mongoose.Schema({
   robotId: {
     type: String,
@@ -26,33 +11,47 @@ const DailyLogSchema = new mongoose.Schema({
     required: true,
     index: true
   },
-  nearDuration: {
-    type: Number, // in seconds
-    default: 0
-  },
-  farDuration: {
-    type: Number, // in seconds
-    default: 0
-  },
-  blinkCount: {
+  // --- Metrik Baru Sesuai Aturan ---
+  screenTimeMinutes: {
     type: Number,
     default: 0
   },
-  sessions: [SessionSchema],
-  eyeHealthStatus: {
-    type: String,
-    enum: ['normal', 'risk_myopia', 'risk_fatigue'],
-    default: 'normal'
+  longestContinuousGazeMinutes: {
+    type: Number,
+    default: 0
   },
-  restCompliance: {
+  blinkRatePerMinute: {
+    type: Number,
+    default: 0
+  },
+  incompleteBlinkRatio: {
     type: Number, // percentage 0-100
-    default: 100
-  }
+    default: 0
+  },
+  dominantDistanceCm: {
+    type: Number,
+    default: 50 // aman default
+  },
+  distanceBelow50CmForAtLeast10Seconds: {
+    type: Boolean,
+    default: false
+  },
+  distanceBelow20CmDetected: {
+    type: Boolean,
+    default: false
+  },
+  
+  // -- Legacy fields (dipertahankan agar tidak break jika ada dependensi) --
+  nearDuration: { type: Number, default: 0 },
+  farDuration: { type: Number, default: 0 },
+  blinkCount: { type: Number, default: 0 },
+  sessions: { type: Array, default: [] },
+  eyeHealthStatus: { type: String, default: 'normal' },
+  restCompliance: { type: Number, default: 100 }
 }, {
   timestamps: true
 });
 
-// Compound unique index: satu log per robot per hari
 DailyLogSchema.index({ robotId: 1, date: 1 }, { unique: true });
 
 module.exports = mongoose.model('DailyLog', DailyLogSchema);

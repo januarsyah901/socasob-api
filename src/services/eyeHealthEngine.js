@@ -1,3 +1,4 @@
+const { THRESHOLDS, MESSAGES } = require('../config/socaSobThresholds');
 const {
   MYOPIA_RISK_RATIO,
   FATIGUE_TIME_THRESHOLD,
@@ -5,142 +6,144 @@ const {
 } = require('../config/constants');
 
 /**
- * Menghitung status kesehatan mata berdasarkan durasi tatap dekat vs jauh
- * @param {number} nearDuration - Durasi mata dekat (detik)
- * @param {number} farDuration - Durasi mata jauh (detik)
- * @returns {string} - 'normal' | 'risk_myopia' | 'risk_fatigue'
+ * Menghitung status risiko harian (Mata Lelah, Mata Kering, Paparan Miopia)
+ * sesuai dengan threshold terbaru yang disetujui dokter.
+ */
+const evaluateDailyRisks = (metrics) => {
+  const {
+    screenTimeMinutes = 0,
+    longestContinuousGazeMinutes = 0,
+    blinkRatePerMinute = 0,
+    incompleteBlinkRatio = 0,
+    distanceBelow50CmForAtLeast10Seconds = false,
+    distanceBelow20CmDetected = false
+  } = metrics;
+
+  // 1. Risiko Mata Lelah
+  const fatigueReasons = [];
+  if (screenTimeMinutes > THRESHOLDS.FATIGUE.SCREEN_TIME_MINUTES) {
+    fatigueReasons.push(MESSAGES.FATIGUE.HIGH_SCREEN_TIME);
+  }
+  if (longestContinuousGazeMinutes > THRESHOLDS.FATIGUE.CONT_GAZE_MINUTES) {
+    fatigueReasons.push(MESSAGES.FATIGUE.HIGH_CONT_GAZE);
+  }
+  if (distanceBelow50CmForAtLeast10Seconds) {
+    fatigueReasons.push(MESSAGES.FATIGUE.LOW_DISTANCE);
+  }
+  const eyeFatigueRisk = {
+    status: fatigueReasons.length > 0 ? 'YA' : 'TIDAK',
+    reasons: fatigueReasons
+  };
+
+  // 2. Risiko Mata Kering
+  const dryEyeReasons = [];
+  if (screenTimeMinutes > THRESHOLDS.DRY_EYE.SCREEN_TIME_MINUTES) {
+    dryEyeReasons.push(MESSAGES.DRY_EYE.HIGH_SCREEN_TIME);
+  }
+  if (incompleteBlinkRatio >= THRESHOLDS.DRY_EYE.INCOMPLETE_BLINK_RATIO) {
+    dryEyeReasons.push(MESSAGES.DRY_EYE.HIGH_INCOMPLETE_BLINK);
+  }
+  // Hanya evaluasi blink rate rendah jika ada screen time
+  if (screenTimeMinutes > 0 && blinkRatePerMinute <= THRESHOLDS.DRY_EYE.BLINK_RATE) {
+    dryEyeReasons.push(MESSAGES.DRY_EYE.LOW_BLINK_RATE);
+  }
+  const dryEyeRisk = {
+    status: dryEyeReasons.length > 0 ? 'YA' : 'TIDAK',
+    reasons: dryEyeReasons
+  };
+
+  // 3. Paparan Risiko Miopia
+  const myopiaReasons = [];
+  if (screenTimeMinutes >= THRESHOLDS.MYOPIA.SCREEN_TIME_MINUTES) {
+    myopiaReasons.push(MESSAGES.MYOPIA.HIGH_SCREEN_TIME);
+  }
+  if (distanceBelow20CmDetected) {
+    myopiaReasons.push(MESSAGES.MYOPIA.LOW_DISTANCE);
+  }
+  if (longestContinuousGazeMinutes > THRESHOLDS.MYOPIA.CONT_GAZE_MINUTES) {
+    myopiaReasons.push(MESSAGES.MYOPIA.HIGH_CONT_GAZE);
+  }
+  const myopiaExposureRisk = {
+    status: myopiaReasons.length > 0 ? 'YA' : 'TIDAK',
+    reasons: myopiaReasons
+  };
+
+  return {
+    eyeFatigueRisk,
+    dryEyeRisk,
+    myopiaExposureRisk
+  };
+};
+
+/**
+ * Menghitung status kesehatan mata berdasarkan durasi tatap dekat vs jauh (Legacy)
  */
 const calculateEyeStatus = (nearDuration, farDuration) => {
   const total = nearDuration + farDuration;
   if (total === 0) return 'normal';
-
   const nearRatio = nearDuration / total;
-
-  // 1. risk_myopia: Jika durasi tatap dekat > 60%
-  if (nearRatio > MYOPIA_RISK_RATIO) {
-    return 'risk_myopia';
-  }
-
-  // 2. risk_fatigue: Jika total durasi > 1 jam DAN tatap dekat > 40%
-  if (total > FATIGUE_TIME_THRESHOLD && nearRatio > FATIGUE_RISK_RATIO) {
-    return 'risk_fatigue';
-  }
-
+  if (nearRatio > MYOPIA_RISK_RATIO) return 'risk_myopia';
+  if (total > FATIGUE_TIME_THRESHOLD && nearRatio > FATIGUE_RISK_RATIO) return 'risk_fatigue';
   return 'normal';
 };
 
-
-
 /**
- * Menghitung tingkat risiko miopia dan kelelahan mata
- * @param {number} nearDuration
- * @param {number} farDuration
- * @returns {Object} - { myopiaRisk: string, fatigueRisk: string }
+ * Menghitung tingkat risiko miopia dan kelelahan mata (Legacy)
  */
 const calculateRiskLevels = (nearDuration, farDuration) => {
   const total = nearDuration + farDuration;
-  if (total === 0) {
-    return { myopiaRisk: 'Rendah', fatigueRisk: 'Rendah' };
-  }
-
+  if (total === 0) return { myopiaRisk: 'Rendah', fatigueRisk: 'Rendah' };
   const nearRatio = nearDuration / total;
-
   let myopiaRisk = 'Rendah';
-  if (nearRatio > 0.6) {
-    myopiaRisk = 'Tinggi';
-  } else if (nearRatio > 0.3) {
-    myopiaRisk = 'Sedang';
-  }
+  if (nearRatio > 0.6) myopiaRisk = 'Tinggi';
+  else if (nearRatio > 0.3) myopiaRisk = 'Sedang';
 
   let fatigueRisk = 'Rendah';
   if (total > 3600) {
-    if (nearRatio > 0.5) {
-      fatigueRisk = 'Tinggi';
-    } else if (nearRatio > 0.25) {
-      fatigueRisk = 'Sedang';
-    }
+    if (nearRatio > 0.5) fatigueRisk = 'Tinggi';
+    else if (nearRatio > 0.25) fatigueRisk = 'Sedang';
   } else if (total > 1800) {
-    // > 30 menit
-    if (nearRatio > 0.4) {
-      fatigueRisk = 'Sedang';
-    }
+    if (nearRatio > 0.4) fatigueRisk = 'Sedang';
   }
-
   return { myopiaRisk, fatigueRisk };
 };
 
 /**
- * Menghitung persentase kepatuhan istirahat berdasarkan aturan 20-20-20
- * Aturan 20-20-20: Istirahat setiap 20 menit selama 20 detik dengan memandang objek jauh
- * @param {Array} sessions - Daftar sesi dari DailyLog
- * @param {number} totalDuration - Total durasi monitoring sesi (detik)
- * @returns {number} - Persentase kepatuhan (0 - 100)
+ * Menghitung persentase kepatuhan istirahat berdasarkan aturan 20-20-20 (Legacy)
  */
 const calculateRestCompliance = (sessions, totalDuration) => {
-  if (!sessions || sessions.length === 0 || totalDuration < 1200) {
-    // Jika tidak ada sesi atau total durasi kurang dari 20 menit (1200 detik), kepatuhan dianggap 100%
-    return 100;
-  }
-
-  // Menghitung kepatuhan:
-  // Kita bagi total durasi menjadi slot 20 menit.
-  // Di setiap slot, kita cari apakah ada break (jeda antar sesi, atau sesi dengan peakDistance 'Jauh' > 20 detik).
-  const slotDuration = 1200; // 20 menit dalam detik
+  if (!sessions || sessions.length === 0 || totalDuration < 1200) return 100;
+  const slotDuration = 1200;
   const numSlots = Math.floor(totalDuration / slotDuration);
   if (numSlots === 0) return 100;
-
   let compliantSlots = 0;
-
-  // Urutkan sesi berdasarkan waktu mulai
   const sortedSessions = [...sessions].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
   for (let i = 0; i < numSlots; i++) {
     const slotStart = new Date(sortedSessions[0].startTime.getTime() + i * slotDuration * 1000);
     const slotEnd = new Date(slotStart.getTime() + slotDuration * 1000);
-
-    // Cari apakah ada break di dalam slot waktu ini
-    // Cara 1: Ada jeda antara akhir sesi A dan awal sesi B sebesar >= 20 detik
-    // Cara 2: Ada sesi dengan peakDistance === 'Jauh' yang berlangsung >= 20 detik
     let hasBreak = false;
-
     for (let j = 0; j < sortedSessions.length; j++) {
       const sess = sortedSessions[j];
       const sessStart = new Date(sess.startTime);
       const sessEnd = sess.endTime ? new Date(sess.endTime) : new Date();
-
-      // Cek Cara 2 (Sesi jauh >= 20 detik di dalam slot)
       if (sess.peakDistance === 'Jauh' && sessStart >= slotStart && sessEnd <= slotEnd) {
-        const durationSec = (sessEnd - sessStart) / 1000;
-        if (durationSec >= 20) {
-          hasBreak = true;
-          break;
-        }
+        if ((sessEnd - sessStart) / 1000 >= 20) { hasBreak = true; break; }
       }
-
-      // Cek Cara 1 (Jeda antarsesi di dalam slot)
       if (j < sortedSessions.length - 1) {
-        const nextSess = sortedSessions[j + 1];
-        const nextSessStart = new Date(nextSess.startTime);
-        
+        const nextSessStart = new Date(sortedSessions[j + 1].startTime);
         if (sessEnd >= slotStart && nextSessStart <= slotEnd) {
-          const gapSec = (nextSessStart - sessEnd) / 1000;
-          if (gapSec >= 20) {
-            hasBreak = true;
-            break;
-          }
+          if ((nextSessStart - sessEnd) / 1000 >= 20) { hasBreak = true; break; }
         }
       }
     }
-
-    if (hasBreak) {
-      compliantSlots++;
-    }
+    if (hasBreak) compliantSlots++;
   }
-
   return Math.round((compliantSlots / numSlots) * 100);
 };
 
 module.exports = {
+  evaluateDailyRisks,
   calculateEyeStatus,
   calculateRiskLevels,
   calculateRestCompliance
