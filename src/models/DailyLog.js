@@ -45,6 +45,8 @@ const DailyLogSchema = new mongoose.Schema({
   nearDuration: { type: Number, default: 0 },
   farDuration: { type: Number, default: 0 },
   blinkCount: { type: Number, default: 0 },
+  incompleteBlinkCount: { type: Number, default: 0 },
+  totalBlinkObserved: { type: Number, default: 0 },
   sessions: { type: Array, default: [] },
   eyeHealthStatus: { type: String, default: 'normal' },
   restCompliance: { type: Number, default: 100 }
