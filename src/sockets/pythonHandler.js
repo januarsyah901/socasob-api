@@ -82,8 +82,23 @@ const handleEyeDetection = async (io, payload) => {
   state.confidence = confidence || 100;
   state.lastDetectionTime = new Date();
 
+  // 1. Kirim status jarak real-time ke room robot ini
+  if (distance === 'Dekat') {
+    sendPushToRobot(
+      robotId, 
+      '⚠️ Peringatan Jarak Layar', 
+      'Jarak mata Anda kurang dari 30 cm. Mundurkan posisi duduk!',
+      'socasob-distance-alert',
+      'distance'
+    );
+  }
+
+  const distanceCm = payload.distance_cm != null ? Number(payload.distance_cm) : null;
+
   io.to(`robot:${robotId}`).emit('eye-distance', {
     distance: distance || state.distance,
+    distanceCm,
+    distance_cm: distanceCm,
     confidence: state.confidence,
     timestamp: timestamp || state.lastDetectionTime.toISOString()
   });
