@@ -36,6 +36,11 @@ const startWatchdog = (io, robotId) => {
       timerService.stopTimer(robotId);
       await logService.closeActiveSession(robotId);
 
+      if (state.watchdogInterval) {
+        clearInterval(state.watchdogInterval);
+        state.watchdogInterval = null;
+      }
+
       io.to(`robot:${robotId}`).emit('eye-status', {
         status: 'disconnected',
         indicators: { eyeFatigue: 0, myopiaRisk: 0, postureWarning: false, blinkRate: 0 },
@@ -95,6 +100,7 @@ const handleEyeDetection = async (io, payload) => {
   }
 
   const distanceCm = payload.distance_cm != null ? Number(payload.distance_cm) : null;
+  state.distanceCm = distanceCm;
 
   io.to(`robot:${robotId}`).emit('eye-distance', {
     distance: distance || state.distance,
@@ -241,6 +247,24 @@ const handleSubscribeRobot = (socket, robotId) => {
   console.log(`[FE Subscribe] socket ${socket.id} join room robot:${robotId}`);
 
   socket.emit('subscribed', { robot_id: robotId, room: `robot:${robotId}` });
+
+  // Kirim status timer saat ini jika timer aktif atau pernah berjalan
+  if (timerService.getIsActive(robotId) || timerService.getElapsedSeconds(robotId) > 0) {
+    const timeObj = timerService.getFormattedTime(robotId);
+    socket.emit('timer-update', { ...timeObj, timestamp: new Date().toISOString() });
+  }
+
+  // Kirim status jarak terakhir jika robot memiliki data
+  const state = robotStates.get(robotId);
+  if (state && state.lastDetectionTime) {
+    socket.emit('eye-distance', {
+      distance: state.distance,
+      distanceCm: state.distanceCm,
+      distance_cm: state.distanceCm,
+      confidence: state.confidence,
+      timestamp: state.lastDetectionTime.toISOString()
+    });
+  }
 };
 
 const registerPythonHandlers = (socket, io) => {
