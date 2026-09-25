@@ -2,6 +2,7 @@ const logService = require('../services/logService');
 const timerService = require('../services/timerService');
 const { isRobotValidAndActive, touchRobotLastSeen } = require('../services/robotService');
 const { resolveRobotId } = require('../services/testingSwitchService');
+const { sendPushToRobot } = require('../services/pushService');
 
 const asNumber = (value) => {
   const num = Number(value);
